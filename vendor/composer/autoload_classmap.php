@@ -13,4 +13,5 @@ return array(
     'Mai\\PerformanceImages\\ImageRouter' => $baseDir . '/classes/class-image-router.php',
     'Mai\\PerformanceImages\\Images' => $baseDir . '/classes/class-images.php',
     'Mai\\PerformanceImages\\Logger' => $baseDir . '/classes/class-logger.php',
+    'Mai\\PerformanceImages\\MaiEngineImages' => $baseDir . '/classes/class-mai-engine-images.php',
 );

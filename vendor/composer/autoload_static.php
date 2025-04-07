@@ -41,6 +41,7 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
         'Mai\\PerformanceImages\\ImageRouter' => __DIR__ . '/../..' . '/classes/class-image-router.php',
         'Mai\\PerformanceImages\\Images' => __DIR__ . '/../..' . '/classes/class-images.php',
         'Mai\\PerformanceImages\\Logger' => __DIR__ . '/../..' . '/classes/class-logger.php',
+        'Mai\\PerformanceImages\\MaiEngineImages' => __DIR__ . '/../..' . '/classes/class-mai-engine-images.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

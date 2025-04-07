@@ -123,7 +123,7 @@ final class ImageRouter {
 		$cache_path = $cache_dir . '/' . $filename . '-' . $width . 'x' . ( $height ?? 'auto' ) . '.webp';
 
 		// Process the image
-		$result = $this->processor->handle_image( $original_path, $cache_path, $width, $height );
+		$result = $this->processor->process_image( $original_path, $cache_path, $width, $height );
 
 		// Check for success
 		if ( ! $result['success'] ) {

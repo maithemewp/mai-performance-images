@@ -21,6 +21,42 @@ abstract class AbstractImages {
 	protected $logger;
 
 	/**
+	 * The tablet breakpoint in pixels.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @var int
+	 */
+	protected $tablet_breakpoint;
+
+	/**
+	 * The desktop breakpoint in pixels.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @var int
+	 */
+	protected $desktop_breakpoint;
+
+	/**
+	 * The content size in pixels.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @var int
+	 */
+	protected $content_size;
+
+	/**
+	 * The wide size in pixels.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @var int
+	 */
+	protected $wide_size;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 0.1.0
@@ -35,7 +71,7 @@ abstract class AbstractImages {
 
 	/**
 	 * Add hooks.
-	 * Override this method to add your own hooks.
+	 * Override this method in your child class to add your own hooks.
 	 *
 	 * @since 0.1.0
 	 *
@@ -63,31 +99,49 @@ abstract class AbstractImages {
 	 * @param array  $args {
 	 *     Optional. Arguments for processing the image.
 	 *
-	 *     @type int      $max_width  Maximum width for the image.
-	 *     @type int      $src_width  Width for the src attribute. Defaults to min(800, max_width).
-	 *     @type int|null $image_id   The image ID.
-	 *     @type array    $sizes      {
+	 *     @type int         $max_width    Maximum width for the image.
+	 *     @type int         $src_width    Width for the src attribute. Defaults to min(800, max_width).
+	 *     @type int|null    $image_id     The image ID.
+	 *     @type int         $max_images   Maximum number of images to process. 0 for all images, 1 for first image only. Default 1.
+	 *     @type string|null $aspect_ratio Aspect ratio to use for cropping (e.g., "16:9" or "1.5").
+	 *     @type array       $sizes       {
 	 *         Responsive sizes configuration.
 	 *         @type string $mobile  Mobile viewport size.
 	 *         @type string $tablet  Tablet viewport size.
 	 *         @type string $desktop Desktop viewport size.
 	 *     }
+	 *     @type array       $breakpoints {
+	 *         Responsive breakpoints.
+	 *         @type int $tablet  Tablet breakpoint.
+	 *         @type int $desktop Desktop breakpoint.
+	 *     }
 	 * }
 	 *
 	 * @return string
 	 */
-	protected function process_image_tag( string $html, array $args = [] ): string {
-		// Parse args with defaults
+	protected function handle_image( string $html, array $args = [] ): string {
+		// Maybe set sizes and breakpoints.
+		$this->set_properties();
+
+		// Parse args with defaults, using class properties for default breakpoints
 		$args = wp_parse_args( $args, [
-			'max_width'  => 2400,
-			'src_width'  => null,
-			'image_id'   => null,
-			'sizes'      => [
+			'aspect_ratio' => null,
+			'max_width'    => 2400,
+			'src_width'    => null,
+			'image_id'     => null,
+			'max_images'   => 1,
+			'content_size' => $this->content_size,
+			'wide_size'    => $this->wide_size,
+			'breakpoints'  => [
+				'tablet'  => $this->tablet_breakpoint,
+				'desktop' => $this->desktop_breakpoint,
+			],
+			'sizes'        => [
 				'mobile'  => '100vw',
 				'tablet'  => '100vw',
 				'desktop' => '100vw',
 			],
-		]);
+		] );
 
 		// Set src width to whichever is smaller, 400 or max_width if not explicitly set
 		if ( ! $args['src_width'] ) {
@@ -97,13 +151,16 @@ abstract class AbstractImages {
 		// Set up tag processor.
 		$tags = new \WP_HTML_Tag_Processor( $html );
 
+		// Track number of images processed
+		$images_processed = 0;
+
 		// Loop through tags.
 		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
 			$src = $tags->get_attribute( 'src' );
 
 			// Bail if no src.
 			if ( ! $src ) {
-				break;
+				continue;
 			}
 
 			// Get uploads directory info.
@@ -112,29 +169,38 @@ abstract class AbstractImages {
 			// Parse URL to get path.
 			$url_path = wp_parse_url( $src, PHP_URL_PATH );
 
-			// Bail if no path.
+			// Skip if no path.
 			if ( ! $url_path ) {
-				break;
+				continue;
 			}
 
 			// Convert URL to path relative to uploads directory.
 			$path = str_replace( wp_parse_url( $uploads['baseurl'], PHP_URL_PATH ) . '/', '', $url_path );
 
-			// Bail if path is unchanged (means URL wasn't in uploads directory).
+			// Skip if path is unchanged (means URL wasn't in uploads directory).
 			if ( $path === $url_path ) {
-				break;
+				continue;
 			}
 
 			// Get the original extension.
 			$path_parts = pathinfo( $path );
-			$extension  = $path_parts['extension'] ?? 'jpg';
+			$extension  = $path_parts['extension'] ?? '';
+
+			// Skip if no extension or it's an svg.
+			if ( ! $extension || 'svg' === $extension ) {
+				continue;
+			}
+
+			// Set image ID.
+			$image_id = $tags->get_attribute( 'data-mai-image-id' );
+			$image_id = $image_id ?: $args['image_id'];
+			$image_id = (int) $image_id;
 
 			// If we have an image ID, get the full size URL.
-			if ( $args['image_id'] ) {
-				$full_url = wp_get_attachment_image_url( $args['image_id'], 'full' );
+			if ( $image_id ) {
+				$full_url = wp_get_attachment_image_url( $image_id, 'full' );
 				if ( $full_url ) {
-					$path = str_replace( wp_parse_url( $uploads['baseurl'], PHP_URL_PATH ) . '/', '', wp_parse_url( $full_url, PHP_URL_PATH ) );
-					$path_parts = pathinfo( $path );
+					$path       = str_replace( wp_parse_url( $uploads['baseurl'], PHP_URL_PATH ) . '/', '', wp_parse_url( $full_url, PHP_URL_PATH ) );
 					$extension  = $path_parts['extension'] ?? 'jpg';
 				}
 			}
@@ -149,16 +215,29 @@ abstract class AbstractImages {
 				return $w <= $args['max_width'];
 			} );
 
-			// Get the site URL for building absolute URLs
+			// Get the site URL for building absolute URLs.
 			$site_url = site_url();
 
 			// Build srcset.
 			foreach ( $widths as $w ) {
-				// Create the path parts.
-				$path_parts = pathinfo( $path );
-				$dirname    = $path_parts['dirname'];
-				$filename   = $path_parts['filename'];
-				$height    = null; // Initialize height variable
+				$height = null;
+
+				// If we have an aspect ratio, calculate the height based on the width and aspect ratio.
+				if ( $args['aspect_ratio'] ) {
+					// Parse aspect ratio (e.g., "16/9" or "1.5").
+					$ratio = $args['aspect_ratio'];
+					if ( str_contains( $ratio, '/' ) ) {
+						// Format is "width/height".
+						list( $ratio_width, $ratio_height ) = explode( '/', $ratio );
+						$ratio = (float) $ratio_width / (float) $ratio_height;
+					} else {
+						// Format is decimal (e.g., "1.5").
+						$ratio = (float) $ratio;
+					}
+
+					// Calculate height based on width and aspect ratio.
+					$height = round( $w / $ratio );
+				}
 
 				// Build the URL with the original extension.
 				$image_url = $site_url . '/mai-performance-images/' . $path;
@@ -166,25 +245,58 @@ abstract class AbstractImages {
 				$srcset[]  = "{$image_url} {$w}w";
 			}
 
-			// Build sizes attribute dynamically based on available widths add mobile size first (default).
-			$sizes_parts   = [];
-			$sizes_parts[] = $args['sizes']['mobile'];
+			// Check if all size values are the same using array_unique.
+			$unique_sizes = array_unique( array_values( $args['sizes'] ) );
 
-			// Skip the smallest width as it's already covered by the default.
-			$breakpoint_widths = array_slice( $widths, 1 );
+			if ( 1 === count( $unique_sizes ) ) {
+				// If all sizes are the same, just use that single value.
+				$sizes = reset( $unique_sizes );
+			} else {
+				// Build sizes attribute using our responsive sizes.
+				$sizes_parts = [];
 
-			// Add breakpoints for each width, except the smallest.
-			foreach ( $breakpoint_widths as $width ) {
-				// Use the width as the breakpoint.
-				$sizes_parts[] = "(min-width: {$width}px) {$width}px";
+				// Add mobile size as the default (no breakpoint).
+				if ( isset( $args['sizes']['mobile'] ) ) {
+					$sizes_parts[] = $args['sizes']['mobile'];
+				}
+
+				// Add tablet size with a breakpoint.
+				if ( isset( $args['sizes']['tablet'] ) ) {
+					$sizes_parts[] = '(min-width: ' . $args['breakpoints']['tablet'] . 'px) ' . $args['sizes']['tablet'];
+				}
+
+				// Add desktop size with a breakpoint.
+				if ( isset( $args['sizes']['desktop'] ) ) {
+					$sizes_parts[] = '(min-width: ' . $args['breakpoints']['desktop'] . 'px) ' . $args['sizes']['desktop'];
+				}
+
+				// Back to string.
+				$sizes = implode( ', ', $sizes_parts );
 			}
-
-			// Back to string.
-			$sizes = implode( ', ', $sizes_parts );
 
 			// Create the src URL with the original extension.
 			$src_url = $site_url . '/mai-performance-images/' . $path;
-			$src_url = str_replace( '.' . $extension, '-' . $args['src_width'] . 'x' . ( $height ?? 'auto' ) . '.' . $extension, $src_url );
+
+			// Calculate height for src URL if needed
+			$src_height = null;
+			if ( $args['aspect_ratio'] ) {
+				// Parse aspect ratio (e.g., "16/9" or "1.5").
+				$ratio = $args['aspect_ratio'];
+				if ( str_contains( $ratio, '/' ) ) {
+					// Format is "width/height".
+					list( $ratio_width, $ratio_height ) = explode( '/', $ratio );
+					$ratio = (float) $ratio_width / (float) $ratio_height;
+				} else {
+					// Format is decimal (e.g., "1.5").
+					$ratio = (float) $ratio;
+				}
+
+				// Calculate height based on width and aspect ratio.
+				$src_height = round( $args['src_width'] / $ratio );
+			}
+
+			// Build the src URL.
+			$src_url = str_replace( '.' . $extension, '-' . $args['src_width'] . 'x' . ( $src_height ?? 'auto' ) . '.' . $extension, $src_url );
 
 			// Set the attributes array.
 			$attr = [
@@ -199,56 +311,21 @@ abstract class AbstractImages {
 			// Set the attributes.
 			$tags->set_attribute( 'data-mai-image', esc_attr( wp_json_encode( $attr ) ) );
 
-			// Break after first image.
-			break;
+			// Increment processed count.
+			$images_processed++;
+
+			// Break if we've hit our max (unless max_images is 0 which means process all).
+			if ( $args['max_images'] > 0 && $images_processed >= $args['max_images'] ) {
+				break;
+			}
 		}
 
 		return $tags->get_updated_html();
 	}
 
 	/**
-	 * Get default args for a block based on its alignment.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $align The block alignment.
-	 *
-	 * @return array
-	 */
-	protected function get_alignment_args( string $align ): array {
-		switch ( $align ) {
-			case 'full':
-				return [
-					'max_width' => 2400,
-					'sizes'     => [
-						'mobile'  => '100vw',
-						'tablet'  => '100vw',
-						'desktop' => '100vw',
-					],
-				];
-			case 'wide':
-				return [
-					'max_width' => 1200,
-					'sizes'     => [
-						'mobile'  => '90vw',
-						'tablet'  => '90vw',
-						'desktop' => '1200px',
-					],
-				];
-			default:
-				return [
-					'max_width' => 800,
-					'sizes'     => [
-						'mobile'  => '90vw',
-						'tablet'  => '90vw',
-						'desktop' => '800px',
-					],
-				];
-		}
-	}
-
-	/**
 	 * Filters an img tag within the content for a given context.
+	 * WP filter callbacks must be public.
 	 *
 	 * @since 0.1.0
 	 *
@@ -312,5 +389,35 @@ abstract class AbstractImages {
 		$filtered_image = $tags->get_updated_html();
 
 		return $filtered_image;
+	}
+
+	/**
+	 * Set properties.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @return void
+	 */
+	protected function set_properties(): void {
+		// If sizes are not set.
+		if ( ! isset( $this->content_size, $this->wide_size ) ) {
+			// Get theme.json layout sizes.
+			$settings           = wp_get_global_settings();
+			$this->content_size = isset( $settings['layout']['contentSize'] ) ? (int) str_replace( 'px', '', $settings['layout']['contentSize'] ) : 800;
+			$this->wide_size    = isset( $settings['layout']['wideSize'] ) ? (int) str_replace( 'px', '', $settings['layout']['wideSize'] ) : 1200;
+		}
+
+		// If breakpoints are not set.
+		if ( ! isset( $this->tablet_breakpoint, $this->desktop_breakpoint ) ) {
+			// Set the breakpoints.
+			$this->tablet_breakpoint  = 782; // WP's min-width where columns are no longer stacked.
+			$this->desktop_breakpoint = 960; // I just picked this one.
+		}
+
+		// Typecast to int.
+		$this->content_size       = (int) $this->content_size;
+		$this->wide_size          = (int) $this->wide_size;
+		$this->tablet_breakpoint  = (int) $this->tablet_breakpoint;
+		$this->desktop_breakpoint = (int) $this->desktop_breakpoint;
 	}
 }

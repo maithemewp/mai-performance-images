@@ -35,3 +35,19 @@ $settings  = new BlockSettings();
 $processor = new ImageProcessor();
 $router    = new ImageRouter( $processor );
 $images    = new Images();
+
+/**
+ * Add support for Mai Theme v2.
+ *
+ * @since 0.1.0
+ *
+ * @return void
+ */
+add_action( 'after_setup_theme', function() {
+	if ( ! ( class_exists( '\Mai_Engine' ) ) ) {
+		return;
+	}
+
+	// Initialize Mai Engine Images.
+	new MaiEngineImages();
+} );

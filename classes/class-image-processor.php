@@ -66,7 +66,7 @@ final class ImageProcessor {
 	 *     @type string $error       Error message if operation failed.
 	 * }
 	 */
-	public function handle_image( $original_path, $cache_path, $width, $height = null ) {
+	public function process_image( $original_path, $cache_path, $width, $height = null ) {
 		// Check if we already have a cached version.
 		if ( file_exists( $cache_path ) && filesize( $cache_path ) > 0 ) {
 			return [
