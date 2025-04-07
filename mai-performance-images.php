@@ -11,7 +11,7 @@
  * Text Domain:       mai-performance-images
  */
 
-namespace Mai\Performance;
+namespace Mai\PerformanceImages;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) exit;

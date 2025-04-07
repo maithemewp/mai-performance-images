@@ -1,16 +1,16 @@
 <?php
 
-namespace Mai\Performance;
+namespace Mai\PerformanceImages;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
- * Mai Performance Images class.
+ * Mai Performance Block Settings class.
  *
  * @since 0.1.0
  */
-final class BlockSettings {
+class BlockSettings {
 	/**
 	 * Constructor.
 	 *

@@ -1,6 +1,6 @@
 <?php
 
-namespace Mai\Performance;
+namespace Mai\PerformanceImages;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -216,8 +216,11 @@ final class ImageProcessor {
 				$image->scaleDown( $args['width'] );
 			}
 
+			// Get image quality.
+			$quality = apply_filters( 'mai_performance_images_image_quality', 80, $args );
+
 			// Save.
-			$image->save( $args['cache_path'], 'webp', 80 );
+			$image->save( $args['cache_path'], 'webp', $quality );
 
 			// Verify.
 			if ( ! file_exists( $args['cache_path'] ) || filesize( $args['cache_path'] ) === 0 ) {
@@ -242,8 +245,11 @@ final class ImageProcessor {
 				@unlink( $args['cache_path'] );
 			}
 
+			// Get the max retry count.
+			$max_retries = (int) apply_filters( 'mai_performance_images_max_retries', 3 );
+
 			// Schedule retry if under retry limit.
-			if ( ! isset( $args['retry_count'] ) || $args['retry_count'] < 3 ) {
+			if ( ! isset( $args['retry_count'] ) || $args['retry_count'] < $max_retries ) {
 				$args['retry_count'] = ( $args['retry_count'] ?? 0 ) + 1;
 
 				// For retries, we'll still use the 5-minute interval.

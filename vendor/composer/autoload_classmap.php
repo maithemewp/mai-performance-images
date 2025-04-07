@@ -7,10 +7,10 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
-    'Mai\\Performance\\AbstractImages' => $baseDir . '/classes/class-abstract-images.php',
-    'Mai\\Performance\\BlockSettings' => $baseDir . '/classes/class-block-settings.php',
-    'Mai\\Performance\\ImageProcessor' => $baseDir . '/classes/class-image-processor.php',
-    'Mai\\Performance\\ImageRouter' => $baseDir . '/classes/class-image-router.php',
-    'Mai\\Performance\\Images' => $baseDir . '/classes/class-images.php',
-    'Mai\\Performance\\Logger' => $baseDir . '/classes/class-logger.php',
+    'Mai\\PerformanceImages\\AbstractImages' => $baseDir . '/classes/class-abstract-images.php',
+    'Mai\\PerformanceImages\\BlockSettings' => $baseDir . '/classes/class-block-settings.php',
+    'Mai\\PerformanceImages\\ImageProcessor' => $baseDir . '/classes/class-image-processor.php',
+    'Mai\\PerformanceImages\\ImageRouter' => $baseDir . '/classes/class-image-router.php',
+    'Mai\\PerformanceImages\\Images' => $baseDir . '/classes/class-images.php',
+    'Mai\\PerformanceImages\\Logger' => $baseDir . '/classes/class-logger.php',
 );

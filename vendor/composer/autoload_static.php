@@ -9,7 +9,7 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
     public static $prefixLengthsPsr4 = array (
         'M' => 
         array (
-            'Mai\\Performance\\' => 16,
+            'Mai\\PerformanceImages\\' => 22,
         ),
         'I' => 
         array (
@@ -19,7 +19,7 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
     );
 
     public static $prefixDirsPsr4 = array (
-        'Mai\\Performance\\' => 
+        'Mai\\PerformanceImages\\' => 
         array (
             0 => __DIR__ . '/../..' . '/classes',
         ),
@@ -35,12 +35,12 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
 
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
-        'Mai\\Performance\\AbstractImages' => __DIR__ . '/../..' . '/classes/class-abstract-images.php',
-        'Mai\\Performance\\BlockSettings' => __DIR__ . '/../..' . '/classes/class-block-settings.php',
-        'Mai\\Performance\\ImageProcessor' => __DIR__ . '/../..' . '/classes/class-image-processor.php',
-        'Mai\\Performance\\ImageRouter' => __DIR__ . '/../..' . '/classes/class-image-router.php',
-        'Mai\\Performance\\Images' => __DIR__ . '/../..' . '/classes/class-images.php',
-        'Mai\\Performance\\Logger' => __DIR__ . '/../..' . '/classes/class-logger.php',
+        'Mai\\PerformanceImages\\AbstractImages' => __DIR__ . '/../..' . '/classes/class-abstract-images.php',
+        'Mai\\PerformanceImages\\BlockSettings' => __DIR__ . '/../..' . '/classes/class-block-settings.php',
+        'Mai\\PerformanceImages\\ImageProcessor' => __DIR__ . '/../..' . '/classes/class-image-processor.php',
+        'Mai\\PerformanceImages\\ImageRouter' => __DIR__ . '/../..' . '/classes/class-image-router.php',
+        'Mai\\PerformanceImages\\Images' => __DIR__ . '/../..' . '/classes/class-images.php',
+        'Mai\\PerformanceImages\\Logger' => __DIR__ . '/../..' . '/classes/class-logger.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

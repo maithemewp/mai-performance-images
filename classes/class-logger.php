@@ -1,6 +1,6 @@
 <?php
 
-namespace Mai\Performance;
+namespace Mai\PerformanceImages;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) exit;
