@@ -88,11 +88,7 @@ final class Images {
 
 		// Handle image requests.
 		add_action( 'init',               [ $this, 'set_image_sizes' ] );
-		add_action( 'init',               [ $this, 'add_rewrite_rule' ] );
-		add_filter( 'query_vars',         [ $this, 'add_query_var' ] );
-		add_filter( 'redirect_canonical', [ $this, 'skip_redirect' ], 10, 2 );
-		add_filter( 'posts_pre_query',    [ $this, 'prevent_query' ], 10, 2 );
-		add_action( 'template_redirect',  [ $this, 'handle_request' ] );
+		add_action( 'template_redirect',  [ $this, 'handle_image_request' ] );
 	}
 
 	/**
@@ -370,9 +366,6 @@ final class Images {
 				break;
 			}
 
-			// Get uploads directory info.
-			$uploads = wp_get_upload_dir();
-
 			// Parse URL to get path.
 			$url_path = wp_parse_url( $src, PHP_URL_PATH );
 
@@ -380,6 +373,9 @@ final class Images {
 			if ( ! $url_path ) {
 				break;
 			}
+
+			// Get uploads directory info.
+			$uploads = wp_get_upload_dir();
 
 			// Convert URL to path relative to uploads directory.
 			$path = str_replace( wp_parse_url( $uploads['baseurl'], PHP_URL_PATH ) . '/', '', $url_path );
@@ -409,7 +405,11 @@ final class Images {
 
 			// Build srcset.
 			foreach ( $widths as $w ) {
-				$image_url = home_url( "/mai-performance-images/{$path}?width={$w}" );
+				// Use template_redirect endpoint
+				$image_url = add_query_arg( [
+					'mai_performance_images' => $path,
+					'width' => $w,
+				], home_url() );
 				$srcset[]  = "{$image_url} {$w}w";
 			}
 
@@ -431,7 +431,10 @@ final class Images {
 
 			// Set the attributes array.
 			$attr = [
-				'src'    => home_url( "/mai-performance-images/{$path}?width={$args['src_width']}" ),
+				'src'    => add_query_arg( [
+					'mai_performance_images' => $path,
+					'width' => $args['src_width'],
+				], home_url() ),
 				'srcset' => implode( ', ', $srcset ),
 				'sizes'  => $sizes,
 			];
@@ -552,82 +555,36 @@ final class Images {
 	}
 
 	/**
-	 * Adds the rewrite rule for the dynamic image.
+	 * Handle image request via template_redirect.
 	 *
 	 * @since 0.1.0
 	 *
 	 * @return void
 	 */
-	public function add_rewrite_rule() {
-		add_rewrite_rule(
-			'mai-performance-images/([^/]+)/?$',
-			'index.php?mai_performance_images=$matches[1]',
-			'top'
-		);
-	}
-
-	/**
-	 * Adds the mai_performance_images query var.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param array $vars The query vars.
-	 * @return array
-	 */
-	public function add_query_var( $vars ) {
-		$vars[] = 'mai_performance_images';
-		return $vars;
-	}
-
-	/**
-	 * Prevents WordPress from adding trailing slashes to dynamic image URLs.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $redirect_url  The redirect URL.
-	 * @param string $requested_url The requested URL.
-	 *
-	 * @return string
-	 */
-	public function skip_redirect( $redirect_url, $requested_url ) {
-		if ( str_contains( $requested_url, '/mai-performance-images/' ) ) {
-			return false;
+	public function handle_image_request() {
+		// Check if this is an image request.
+		if ( ! isset( $_GET['mai_performance_images'] ) ) {
+			return;
 		}
 
-		return $redirect_url;
-	}
-
-	/**
-	 * Prevents the query from running if the mai_performance_images query var is set.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param array    $pre   The pre-query array.
-	 * @param WP_Query $query The query object.
-	 *
-	 * @return array
-	 */
-	public function prevent_query( $pre, $query ) {
-		if ( ! $query->get( 'mai_performance_images' ) ) {
-			return $pre;
-		}
-
-		return [];
-	}
-
-	/**
-	 * Handles the request for a dynamic image.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @return void
-	 */
-	public function handle_request() {
-		$image_path = get_query_var( 'mai_performance_images' );
+		$image_path = $_GET['mai_performance_images'];
 
 		// Bail if no image path.
 		if ( ! $image_path ) {
-			return;
+			header( 'HTTP/1.1 400 Bad Request' );
+			exit( 'No image path provided' );
+		}
+
+		// Get WordPress upload directory info.
+		$upload_dir = wp_upload_dir();
+
+		// Build the full path to the image.
+		$full_path = $upload_dir['basedir'] . '/' . urldecode( $image_path );
+
+		// Check if file exists.
+		if ( ! file_exists( $full_path ) ) {
+			header( 'HTTP/1.1 404 Not Found' );
+			exit( 'Image file not found' );
 		}
 
 		// Initialize the image manager.
@@ -635,11 +592,12 @@ final class Images {
 			Driver::class,
 			autoOrientation: false,
 			decodeAnimation: true,
-			strip: true,
+			blendingColor: 'ffffff',
+			strip: false, // Preserves transparency.
 		);
 
 		// Set cache directory.
-		$cache_dir = WP_CONTENT_DIR . '/mai-performance-images';
+		$cache_dir = $upload_dir['basedir'] . '/mai-performance-images';
 
 		// Create cache directory if it doesn't exist.
 		if ( ! file_exists( $cache_dir ) ) {
@@ -647,24 +605,38 @@ final class Images {
 		}
 
 		// Get the params.
+		$width  = isset( $_GET['width'] ) ? (int) $_GET['width'] : null;
+		$height = isset( $_GET['height'] ) ? (int) $_GET['height'] : null;
 		$params = array_filter( [
-			'width'  => $_GET['width'] ?? '',
-			'height' => $_GET['height'] ?? '',
+			'width'  => $width ?? '',
+			'height' => $height ?? '',
 		] );
 
-		// Get format from $_GET or default to avif.
-		$format = $_GET['format'] ?? 'avif';
+		// Get format from request or default to webp.
+		$format = $_GET['format'] ?? 'webp';
 		$format = 'jpg' === $format ? 'jpeg' : $format;
 		$mime   = match( $format ) {
 			'avif'  => 'image/avif',
+			'webp'  => 'image/webp',
 			'jpeg'  => 'image/jpeg',
 			'png'   => 'image/png',
-			default => 'image/avif',
+			default => 'image/webp',
 		};
 
 		// Generate a cache key.
-		$cache_key  = md5( $image_path . serialize( $params ) );
-		$cache_file = "$cache_dir/$cache_key.$format";
+		$path_parts = pathinfo($image_path);
+		$dimensions = '';
+		if ($width || $height) {
+			$dimensions = '-' . ($width ?? 'auto') . 'x' . ($height ?? 'auto');
+		}
+		$cache_filename = $path_parts['dirname'] . '/' . $path_parts['filename'] . $dimensions . '.' . $format;
+		$cache_file = $cache_dir . '/' . $cache_filename;
+
+		// Create subdirectories if needed.
+		$cache_dir_path = dirname($cache_file);
+		if (!file_exists($cache_dir_path)) {
+			mkdir($cache_dir_path, 0755, true);
+		}
 
 		// Serve cached file if it exists.
 		if ( file_exists( $cache_file ) ) {
@@ -673,39 +645,22 @@ final class Images {
 			exit;
 		}
 
-		// Get the full image path.
-		$upload_dir = wp_upload_dir();
-		$full_path  = $upload_dir['basedir'] . '/' . urldecode( $image_path );
+		// Generate and cache the image.
+		$img = $manager->read( $full_path );
+		$width  = isset( $_GET['width'] ) ? (int) $_GET['width'] : null;
+		$height = isset( $_GET['height'] ) ? (int) $_GET['height'] : null;
 
-		// Generate and cache the image if it exists.
-		if ( file_exists( $full_path ) ) {
-			// Get the image data.
-			$img    = $manager->read($full_path);
-			$width  = isset( $_GET['width'] ) ? (int) $_GET['width'] : null;
-			$height = isset( $_GET['height'] ) ? (int) $_GET['height'] : null;
-
-			// Resize the image if width or height is set.
-			if ( $width || $height ) {
-				// scaleDown will maintain aspect ratio and ensure image isn't enlarged.
-				$img->scaleDown( $width, $height );
-
-				// cover() will crop and resize to fill the exact dimensions without stretching.
-				// $img->cover( $width, 1 );
-			}
-
-			// Save the image to the cache.
-			$img->save( $cache_file );
-
-			// Set the mime type.
-			header( "Content-Type: $mime" );
-
-			// Output the image.
-			echo $img->encodeByExtension( $format );
-			exit;
+		// Resize if needed.
+		if ( $width || $height ) {
+			$img->scaleDown( $width, $height );
 		}
 
-		// Fallback if file doesn't exist.
-		header('HTTP/1.1 404 Not Found');
+		// Save to cache.
+		$img->save( $cache_file );
+
+		// Output the image.
+		header( "Content-Type: $mime" );
+		echo $img->encodeByExtension( $format );
 		exit;
 	}
 }
