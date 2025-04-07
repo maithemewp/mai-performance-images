@@ -88,7 +88,11 @@ final class Images {
 
 		// Handle image requests.
 		add_action( 'init',               [ $this, 'set_image_sizes' ] );
+		add_action( 'init',               [ $this, 'register_rewrite_rules' ] );
 		add_action( 'template_redirect',  [ $this, 'handle_image_request' ] );
+
+		// Prevent trailing slash redirect for image URLs.
+		add_filter( 'redirect_canonical', [ $this, 'prevent_trailing_slash_redirect' ], 10, 2 );
 	}
 
 	/**
@@ -366,6 +370,9 @@ final class Images {
 				break;
 			}
 
+			// Get uploads directory info.
+			$uploads = wp_get_upload_dir();
+
 			// Parse URL to get path.
 			$url_path = wp_parse_url( $src, PHP_URL_PATH );
 
@@ -373,9 +380,6 @@ final class Images {
 			if ( ! $url_path ) {
 				break;
 			}
-
-			// Get uploads directory info.
-			$uploads = wp_get_upload_dir();
 
 			// Convert URL to path relative to uploads directory.
 			$path = str_replace( wp_parse_url( $uploads['baseurl'], PHP_URL_PATH ) . '/', '', $url_path );
@@ -385,11 +389,17 @@ final class Images {
 				break;
 			}
 
+			// Get the original extension.
+			$path_parts = pathinfo( $path );
+			$extension  = $path_parts['extension'] ?? 'jpg';
+
 			// If we have an image ID, get the full size URL.
 			if ( $args['image_id'] ) {
 				$full_url = wp_get_attachment_image_url( $args['image_id'], 'full' );
 				if ( $full_url ) {
 					$path = str_replace( wp_parse_url( $uploads['baseurl'], PHP_URL_PATH ) . '/', '', wp_parse_url( $full_url, PHP_URL_PATH ) );
+					$path_parts = pathinfo( $path );
+					$extension  = $path_parts['extension'] ?? 'jpg';
 				}
 			}
 
@@ -403,13 +413,19 @@ final class Images {
 				return $w <= $args['max_width'];
 			} );
 
+			// Get the site URL for building absolute URLs
+			$site_url = site_url();
+
 			// Build srcset.
 			foreach ( $widths as $w ) {
-				// Use template_redirect endpoint
-				$image_url = add_query_arg( [
-					'mai_performance_images' => $path,
-					'width' => $w,
-				], home_url() );
+				// Create the path parts.
+				$path_parts = pathinfo( $path );
+				$dirname    = $path_parts['dirname'];
+				$filename   = $path_parts['filename'];
+
+				// Build the URL with the original extension.
+				$image_url = $site_url . '/mai-performance-images/' . $path;
+				$image_url = str_replace( '.' . $extension, '-' . $w . 'x' . ( $height ?? 'auto' ) . '.' . $extension, $image_url );
 				$srcset[]  = "{$image_url} {$w}w";
 			}
 
@@ -417,24 +433,25 @@ final class Images {
 			$sizes_parts   = [];
 			$sizes_parts[] = $args['sizes']['mobile'];
 
-			// Skip the smallest width as it's already covered by the default
+			// Skip the smallest width as it's already covered by the default.
 			$breakpoint_widths = array_slice( $widths, 1 );
 
 			// Add breakpoints for each width, except the smallest.
 			foreach ( $breakpoint_widths as $width ) {
-				// Use the width as the breakpoint
+				// Use the width as the breakpoint.
 				$sizes_parts[] = "(min-width: {$width}px) {$width}px";
 			}
 
 			// Back to string.
 			$sizes = implode( ', ', $sizes_parts );
 
+			// Create the src URL with the original extension.
+			$src_url = $site_url . '/mai-performance-images/' . $path;
+			$src_url = str_replace( '.' . $extension, '-' . $args['src_width'] . 'x' . ( $height ?? 'auto' ) . '.' . $extension, $src_url );
+
 			// Set the attributes array.
 			$attr = [
-				'src'    => add_query_arg( [
-					'mai_performance_images' => $path,
-					'width' => $args['src_width'],
-				], home_url() ),
+				'src'    => $src_url,
 				'srcset' => implode( ', ', $srcset ),
 				'sizes'  => $sizes,
 			];
@@ -562,27 +579,45 @@ final class Images {
 	 * @return void
 	 */
 	public function handle_image_request() {
-		// Check if this is an image request.
-		if ( ! isset( $_GET['mai_performance_images'] ) ) {
+		// Check if this is an image request by looking at the URL path.
+		$request_uri = $_SERVER['REQUEST_URI'];
+		if ( ! str_contains( $request_uri, '/mai-performance-images/' ) ) {
 			return;
 		}
 
-		$image_path = $_GET['mai_performance_images'];
-
-		// Bail if no image path.
-		if ( ! $image_path ) {
-			header( 'HTTP/1.1 400 Bad Request' );
-			exit( 'No image path provided' );
+		// Extract the path from the URL.
+		$path_parts = explode( '/mai-performance-images/', $request_uri );
+		if ( 2 !== count( $path_parts ) ) {
+			return;
 		}
 
-		// Get WordPress upload directory info.
-		$upload_dir = wp_upload_dir();
+		// Get the image path.
+		$image_path = $path_parts[1];
 
-		// Build the full path to the image.
-		$full_path = $upload_dir['basedir'] . '/' . urldecode( $image_path );
+		// Parse the path to get dimensions and format.
+		if ( ! preg_match( '/^(.+?)-([0-9]+)x([0-9]+|auto)\.(jpg|jpeg|png|gif|webp)$/', $image_path, $matches ) ) {
+			return;
+		}
+
+		// Extract the parameters.
+		$base_path = $matches[1];
+		$width     = (int) $matches[2];
+		$height    = 'auto' === $matches[3] ? null : (int) $matches[3];
+		$extension = $matches[4];
+
+		// Get the original image path from WordPress.
+		$upload_dir = wp_get_upload_dir();
+
+		// Try the original uploads location first.
+		$original_path = $upload_dir['basedir'] . '/' . urldecode( $base_path ) . '.' . $extension;
+
+		// If not found, try in mai-performance-images directory.
+		if ( ! file_exists( $original_path ) ) {
+			$original_path = $upload_dir['basedir'] . '/mai-performance-images/' . urldecode( $base_path ) . '.' . $extension;
+		}
 
 		// Check if file exists.
-		if ( ! file_exists( $full_path ) ) {
+		if ( ! file_exists( $original_path ) ) {
 			header( 'HTTP/1.1 404 Not Found' );
 			exit( 'Image file not found' );
 		}
@@ -593,75 +628,89 @@ final class Images {
 			autoOrientation: false,
 			decodeAnimation: true,
 			blendingColor: 'ffffff',
-			strip: false, // Preserves transparency.
+			strip: true,
 		);
 
-		// Set cache directory.
-		$cache_dir = $upload_dir['basedir'] . '/mai-performance-images';
+		// Generate a cache filename that preserves the original path structure.
+		$cache_filename = $base_path . '-' . $width . 'x' . ( $height ?? 'auto' ) . '.webp';
+		$cache_path     = $upload_dir['basedir'] . '/mai-performance-images/' . $cache_filename;
 
 		// Create cache directory if it doesn't exist.
+		$cache_dir = dirname( $cache_path );
 		if ( ! file_exists( $cache_dir ) ) {
-			mkdir( $cache_dir, 0755, true );
+			wp_mkdir_p( $cache_dir );
 		}
 
-		// Get the params.
-		$width  = isset( $_GET['width'] ) ? (int) $_GET['width'] : null;
-		$height = isset( $_GET['height'] ) ? (int) $_GET['height'] : null;
-		$params = array_filter( [
-			'width'  => $width ?? '',
-			'height' => $height ?? '',
-		] );
-
-		// Get format from request or default to webp.
-		$format = $_GET['format'] ?? 'webp';
-		$format = 'jpg' === $format ? 'jpeg' : $format;
-		$mime   = match( $format ) {
-			'avif'  => 'image/avif',
-			'webp'  => 'image/webp',
-			'jpeg'  => 'image/jpeg',
-			'png'   => 'image/png',
-			default => 'image/webp',
-		};
-
-		// Generate a cache key.
-		$path_parts = pathinfo($image_path);
-		$dimensions = '';
-		if ($width || $height) {
-			$dimensions = '-' . ($width ?? 'auto') . 'x' . ($height ?? 'auto');
-		}
-		$cache_filename = $path_parts['dirname'] . '/' . $path_parts['filename'] . $dimensions . '.' . $format;
-		$cache_file = $cache_dir . '/' . $cache_filename;
-
-		// Create subdirectories if needed.
-		$cache_dir_path = dirname($cache_file);
-		if (!file_exists($cache_dir_path)) {
-			mkdir($cache_dir_path, 0755, true);
-		}
-
-		// Serve cached file if it exists.
-		if ( file_exists( $cache_file ) ) {
-			header( "Content-Type: $mime" );
-			readfile( $cache_file );
+		// Check if we already have a cached version.
+		if ( file_exists( $cache_path ) ) {
+			header( 'Content-Type: image/webp' );
+			readfile( $cache_path );
 			exit;
 		}
 
-		// Generate and cache the image.
-		$img = $manager->read( $full_path );
-		$width  = isset( $_GET['width'] ) ? (int) $_GET['width'] : null;
-		$height = isset( $_GET['height'] ) ? (int) $_GET['height'] : null;
+		// Process the image.
+		$image = $manager->read( $original_path );
 
-		// Resize if needed.
-		if ( $width || $height ) {
-			$img->scaleDown( $width, $height );
+		// Resize the image.
+		if ( $height ) {
+			// If both dimensions are specified, crop to exact size.
+			$image->cover( $width, $height );
+		} else {
+			// If only width is specified, scale down maintaining aspect ratio.
+			$image->scaleDown( $width, $height );
 		}
 
-		// Save to cache.
-		$img->save( $cache_file );
+		// Save the processed image.
+		$image->save( $cache_path, 'webp', 80 );
 
-		// Output the image.
-		header( "Content-Type: $mime" );
-		echo $img->encodeByExtension( $format );
+		// Serve the processed image.
+		header( 'Content-Type: image/webp' );
+		readfile( $cache_path );
 		exit;
+	}
+
+	/**
+	 * Register rewrite rules for image URLs.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @return void
+	 */
+	public function register_rewrite_rules() {
+		// Register the rewrite rule for image paths.
+		add_rewrite_rule(
+			'^mai-performance-images/(.+?)-([0-9]+)x([0-9]+|auto)\.(jpg|jpeg|png|gif|webp)$',
+			'index.php?maipi_path=$1&maipi_width=$2&maipi_height=$3&maipi_ext=$4',
+			'top'
+		);
+
+		// Register the query vars.
+		add_filter('query_vars', function($vars) {
+			$vars[] = 'maipi_path';
+			$vars[] = 'maipi_width';
+			$vars[] = 'maipi_height';
+			$vars[] = 'maipi_ext';
+			return $vars;
+		});
+	}
+
+	/**
+	 * Prevent trailing slash redirect for image URLs.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $redirect_url  The redirect URL.
+	 * @param string $requested_url The requested URL.
+	 *
+	 * @return string|false
+	 */
+	public function prevent_trailing_slash_redirect( $redirect_url, $requested_url ) {
+		// Check if this is an image request.
+		if ( str_contains( $requested_url, '/mai-performance-images/' ) ) {
+			return false;
+		}
+
+		return $redirect_url;
 	}
 }
 
