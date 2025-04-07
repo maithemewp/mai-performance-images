@@ -1,4 +1,12 @@
 {
+    "autoload": {
+        "psr-4": {
+            "Mai\\Performance\\": "classes/"
+        },
+        "classmap": [
+            "classes/"
+        ]
+    },
     "require": {
         "intervention/image": "^3.11"
     }

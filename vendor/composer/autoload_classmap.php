@@ -7,4 +7,9 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
+    'Mai\\Performance\\BlockSettings' => $baseDir . '/classes/class-block-settings.php',
+    'Mai\\Performance\\ImageProcessor' => $baseDir . '/classes/class-image-processor.php',
+    'Mai\\Performance\\ImageRouter' => $baseDir . '/classes/class-image-router.php',
+    'Mai\\Performance\\Images' => $baseDir . '/classes/class-images.php',
+    'Mai\\Performance\\Logger' => $baseDir . '/classes/class-logger.php',
 );

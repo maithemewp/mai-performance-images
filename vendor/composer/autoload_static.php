@@ -7,6 +7,10 @@ namespace Composer\Autoload;
 class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
 {
     public static $prefixLengthsPsr4 = array (
+        'M' => 
+        array (
+            'Mai\\Performance\\' => 16,
+        ),
         'I' => 
         array (
             'Intervention\\Image\\' => 19,
@@ -15,6 +19,10 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
     );
 
     public static $prefixDirsPsr4 = array (
+        'Mai\\Performance\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/classes',
+        ),
         'Intervention\\Image\\' => 
         array (
             0 => __DIR__ . '/..' . '/intervention/image/src',
@@ -27,6 +35,11 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
 
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
+        'Mai\\Performance\\BlockSettings' => __DIR__ . '/../..' . '/classes/class-block-settings.php',
+        'Mai\\Performance\\ImageProcessor' => __DIR__ . '/../..' . '/classes/class-image-processor.php',
+        'Mai\\Performance\\ImageRouter' => __DIR__ . '/../..' . '/classes/class-image-router.php',
+        'Mai\\Performance\\Images' => __DIR__ . '/../..' . '/classes/class-images.php',
+        'Mai\\Performance\\Logger' => __DIR__ . '/../..' . '/classes/class-logger.php',
     );
 
     public static function getInitializer(ClassLoader $loader)
