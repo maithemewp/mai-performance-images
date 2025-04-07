@@ -2,14 +2,19 @@
 
 namespace Mai\Performance;
 
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) exit;
+
 /**
  * Mai Performance Logger class.
  *
  * @since 0.1.0
  */
-final class Logger {
+class Logger {
 	/**
 	 * The singleton instance.
+	 *
+	 * @since 0.1.0
 	 *
 	 * @var Logger
 	 */
@@ -22,7 +27,7 @@ final class Logger {
 	 *
 	 * @return Logger
 	 */
-	public static function get_instance() {
+	public static function get_instance(): Logger {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
 		}
@@ -34,6 +39,8 @@ final class Logger {
 	 * Private constructor to prevent direct instantiation.
 	 *
 	 * @since 0.1.0
+	 *
+	 * @return void
 	 */
 	private function __construct() {}
 
@@ -43,41 +50,25 @@ final class Logger {
 	 * @since 0.1.0
 	 *
 	 * @param string $message The message to log.
-	 * @param string $level   Optional. The log level. Default 'info'.
 	 *
 	 * @return void
 	 */
-	public function log( $message, $level = 'info' ) {
-		// Bail if debugging is not enabled
+	public function log( string $message ): void {
+		// Bail if debugging is not enabled.
 		if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
 			return;
 		}
 
-		// Format the message
-		$formatted = sprintf( 'Mai Performance Images [%s]: %s', strtoupper( $level ), $message );
+		// Format the message.
+		$formatted = sprintf( 'Mai Performance Images: %s', $message );
 
-		// Log the message
+		// Log the message.
 		error_log( $formatted );
 
-		// If ray is available, use it for additional debugging with appropriate color
+		// If ray is available, use it for additional debugging.
 		if ( function_exists( '\ray' ) ) {
-			$ray = \ray( $formatted )->label( 'Mai Performance Images' );
-
-			// Set color based on level
-			switch ( $level ) {
-				case 'error':
-					$ray->red();
-					break;
-				case 'warning':
-					$ray->orange();
-					break;
-				case 'success':
-					$ray->green();
-					break;
-				default:
-					$ray->blue();
-					break;
-			}
+			/** @intelephense-ignore-next-line */
+			\ray( $formatted )->label( 'Mai Performance Images' );
 		}
 	}
 

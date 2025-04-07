@@ -54,8 +54,6 @@ final class ImageRouter {
 	public function hooks() {
 		add_action( 'init',               [ $this, 'register_rewrite_rules' ] );
 		add_action( 'template_redirect',  [ $this, 'handle_image_request' ] );
-
-		// Prevent trailing slash redirect for image URLs.
 		add_filter( 'redirect_canonical', [ $this, 'prevent_trailing_slash_redirect' ], 10, 2 );
 	}
 

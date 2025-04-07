@@ -30,10 +30,7 @@ final class BlockSettings {
 	 * @return void
 	 */
 	public function hooks() {
-		// Admin editor assets.
-		add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_block_editor_assets' ] );
-
-		// Block loading filters.
+		add_action( 'enqueue_block_editor_assets',           [ $this, 'enqueue_block_editor_assets' ] );
 		add_filter( 'render_block_core/cover',               [ $this, 'render_loading_attribute' ], 10, 2 );
 		add_filter( 'render_block_core/image',               [ $this, 'render_loading_attribute' ], 10, 2 );
 		add_filter( 'render_block_core/site-logo',           [ $this, 'render_loading_attribute' ], 10, 2 );

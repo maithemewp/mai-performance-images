@@ -11,7 +11,7 @@ import { SelectControl } from '@wordpress/components';
  *
  * @type {Array}
  */
-const allowedBlocks = [ 'core/cover', 'core/image', 'core/site-logo', 'core/post-featured-image' ];
+const allowedBlocks = [ 'core/cover', 'core/image', 'core/site-logo', 'core/post-featured-image', 'core/media-text' ];
 
 /**
  * Add custom img loading attribute to allowed blocks.

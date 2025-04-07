@@ -105,7 +105,7 @@ final class ImageProcessor {
 				) );
 			}
 
-			// Verify it was actually scheduled
+			// Verify it was actually scheduled.
 			$next_run = wp_next_scheduled( 'mai_process_image', [ $args ] );
 
 			if ( ! $next_run ) {
@@ -116,10 +116,10 @@ final class ImageProcessor {
 			}
 		}
 
-		// Get the original image extension
+		// Get the original image extension.
 		$extension = pathinfo( $original_path, PATHINFO_EXTENSION );
 
-		// Return the original image path for now
+		// Return the original image path for now.
 		return [
 			'success'   => true,
 			'file_path' => $original_path,
@@ -145,7 +145,7 @@ final class ImageProcessor {
 	 * @return void
 	 */
 	public function process_background_image( $args ) {
-		// Validate required arguments
+		// Validate required arguments.
 		if ( ! isset( $args['original_path'], $args['cache_path'], $args['width'] ) ) {
 			return;
 		}
@@ -230,7 +230,7 @@ final class ImageProcessor {
 			) );
 
 		} catch ( \Exception $e ) {
-			// Log the error
+			// Log the error.
 			$this->logger->error( sprintf(
 				'Error processing image %s - %s',
 				$args['original_path'],
