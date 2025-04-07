@@ -93,6 +93,9 @@ final class Images {
 
 		// Prevent trailing slash redirect for image URLs.
 		add_filter( 'redirect_canonical', [ $this, 'prevent_trailing_slash_redirect' ], 10, 2 );
+
+		// Background processing.
+		add_action( 'mai_process_image', [ $this, 'process_background_image' ] );
 	}
 
 	/**
@@ -228,7 +231,7 @@ final class Images {
 		// Maybe set the image ID.
 		$args['image_id'] = $block['attrs']['id'] ?? null;
 
-		return $this->process_image( $block_content, $args );
+		return $this->process_image_tag( $block_content, $args );
 	}
 
 	/**
@@ -287,7 +290,7 @@ final class Images {
 
 		$args['image_id'] = $block['attrs']['id'] ?? null;
 
-		return $this->process_image( $block_content, $args );
+		return $this->process_image_tag( $block_content, $args );
 	}
 
 	/**
@@ -304,7 +307,7 @@ final class Images {
 	public function render_site_logo_block( $block_content, $block ) {
 		$width = $block['attrs']['width'] ?? 800;
 
-		$block_content = $this->process_image( $block_content, [
+		$block_content = $this->process_image_tag( $block_content, [
 			'max_width'  => $width * 2,
 			'src_width'  => $width * 2,
 			'sizes'      => [
@@ -339,7 +342,7 @@ final class Images {
 	 *
 	 * @return string
 	 */
-	public function process_image( $html, $args = [] ) {
+	public function process_image_tag( $html, $args = [] ) {
 		// Parse args with defaults
 		$args = wp_parse_args( $args, [
 			'max_width'  => 2400,
@@ -588,7 +591,8 @@ final class Images {
 		// Extract the path from the URL.
 		$path_parts = explode( '/mai-performance-images/', $request_uri );
 		if ( 2 !== count( $path_parts ) ) {
-			return;
+			status_header( 404 );
+			exit( 'Invalid image path' );
 		}
 
 		// Get the image path.
@@ -596,7 +600,8 @@ final class Images {
 
 		// Parse the path to get dimensions and format.
 		if ( ! preg_match( '/^(.+?)-([0-9]+)x([0-9]+|auto)\.(jpg|jpeg|png|gif|webp)$/', $image_path, $matches ) ) {
-			return;
+			status_header( 404 );
+			exit( 'Invalid image format' );
 		}
 
 		// Extract the parameters.
@@ -618,52 +623,72 @@ final class Images {
 
 		// Check if file exists.
 		if ( ! file_exists( $original_path ) ) {
-			header( 'HTTP/1.1 404 Not Found' );
+			status_header( 404 );
 			exit( 'Image file not found' );
 		}
 
-		// Initialize the image manager.
-		$manager = new ImageManager(
-			Driver::class,
-			autoOrientation: false,
-			decodeAnimation: true,
-			blendingColor: 'ffffff',
-			strip: true,
-		);
+		// Get the directory structure from the base_path
+		$path_info = pathinfo( $base_path );
+		$dirname   = $path_info['dirname'];
+		$filename  = $path_info['filename'];
 
-		// Generate a cache filename that preserves the original path structure.
-		$cache_filename = $base_path . '-' . $width . 'x' . ( $height ?? 'auto' ) . '.webp';
-		$cache_path     = $upload_dir['basedir'] . '/mai-performance-images/' . $cache_filename;
+		// Handle root-level files (when dirname is '.' or empty)
+		$dirname = ($dirname === '.' || empty($dirname)) ? '' : $dirname;
+
+		// Generate cache paths preserving the original directory structure
+		$cache_dir  = rtrim($upload_dir['basedir'] . '/mai-performance-images/' . $dirname, '/');
+		$cache_path = $cache_dir . '/' . $filename . '-' . $width . 'x' . ( $height ?? 'auto' ) . '.webp';
 
 		// Create cache directory if it doesn't exist.
-		$cache_dir = dirname( $cache_path );
 		if ( ! file_exists( $cache_dir ) ) {
 			wp_mkdir_p( $cache_dir );
 		}
 
 		// Check if we already have a cached version.
-		if ( file_exists( $cache_path ) ) {
-			header( 'Content-Type: image/webp' );
-			readfile( $cache_path );
+		if ( ! file_exists( $cache_path ) ) {
+			// Schedule the processing if not already scheduled.
+			$args = [
+				'original_path' => $original_path,
+				'cache_path'    => $cache_path,
+				'width'         => $width,
+				'height'        => $height,
+			];
+
+			// Check if already scheduled.
+			$is_scheduled = wp_next_scheduled( 'mai_process_image', [ $args ] );
+
+			// If not scheduled, schedule it.
+			if ( ! $is_scheduled ) {
+				// Try to schedule and capture the result.
+				$scheduled = wp_schedule_single_event( time(), 'mai_process_image', [ $args ] );
+
+				if ( ! $scheduled ) {
+					$this->log( sprintf(
+						'Failed to schedule image processing for %s',
+						$args['original_path']
+					) );
+				}
+
+				// Verify it was actually scheduled
+				$next_run = wp_next_scheduled( 'mai_process_image', [ $args ] );
+
+				if ( ! $next_run ) {
+					$this->log( sprintf(
+						'Scheduling verification failed for %s',
+						$args['original_path']
+					) );
+				}
+			}
+
+			// Serve original image immediately with 200 status.
+			status_header( 200 );
+			header( 'Content-Type: image/' . $extension );
+			readfile( $original_path );
 			exit;
 		}
 
-		// Process the image.
-		$image = $manager->read( $original_path );
-
-		// Resize the image.
-		if ( $height ) {
-			// If both dimensions are specified, crop to exact size.
-			$image->cover( $width, $height );
-		} else {
-			// If only width is specified, scale down maintaining aspect ratio.
-			$image->scaleDown( $width, $height );
-		}
-
-		// Save the processed image.
-		$image->save( $cache_path, 'webp', 80 );
-
-		// Serve the processed image.
+		// Serve the cached WebP version with 200 status.
+		status_header( 200 );
 		header( 'Content-Type: image/webp' );
 		readfile( $cache_path );
 		exit;
@@ -711,6 +736,171 @@ final class Images {
 		}
 
 		return $redirect_url;
+	}
+
+	/**
+	 * Process image resize and conversion in the background.
+	 *
+	 * @since TBD
+	 *
+	 * @param array $args {
+	 *     The processing arguments.
+	 *
+	 *     @type string $original_path Path to the original image file.
+	 *     @type string $cache_path    Path where the processed image should be saved.
+	 *     @type int    $width         Target width for the processed image.
+	 *     @type int    $height        Optional. Target height for the processed image.
+	 *     @type int    $retry_count   Optional. Number of times this processing has been retried.
+	 * }
+	 *
+	 * @return void
+	 */
+	public function process_background_image( $args ) {
+		// Validate required arguments
+		if ( ! isset( $args['original_path'], $args['cache_path'], $args['width'] ) ) {
+			return;
+		}
+
+		// Check if the image is already processed
+		if ( file_exists( $args['cache_path'] ) && filesize( $args['cache_path'] ) > 0 ) {
+			return;
+		}
+
+		// Set lock duration and key.
+		$lock_duration = 30; // seconds
+		$lock_key      = 'mai_processing_' . md5( $args['cache_path'] );
+
+		// First check if there's an existing lock.
+		if ( get_transient( $lock_key ) ) {
+			// Check if this is a retry attempt.
+			$is_retry = isset( $args['retry_count'] ) && $args['retry_count'] > 0;
+
+			// Get lock time.
+			$lock_time = get_transient( $lock_key . '_time' );
+
+			// If this is not a retry and the lock is less than the duration old, bail.
+			if ( ! $is_retry && $lock_time && ( time() - $lock_time < $lock_duration ) ) {
+				return;
+			}
+
+			// Double check if image was created while we were locked.
+			if ( file_exists( $args['cache_path'] ) && filesize( $args['cache_path'] ) > 0 ) {
+				delete_transient( $lock_key );
+				delete_transient( $lock_key . '_time' );
+				return;
+			}
+		}
+
+		// Set processing lock with timestamp.
+		set_transient( $lock_key, true, $lock_duration );
+		set_transient( $lock_key . '_time', time(), $lock_duration );
+
+		try {
+			// Check if the original file exists.
+			if ( ! file_exists( $args['original_path'] ) ) {
+				throw new \Exception( 'Original image file not found: ' . $args['original_path'] );
+			}
+
+			// One final check before processing.
+			if ( file_exists( $args['cache_path'] ) && filesize( $args['cache_path'] ) > 0 ) {
+				return;
+			}
+
+			// Initialize ImageManager.
+			$manager = new ImageManager(
+				Driver::class,
+				[
+					'autoOrientation' => false,
+					'decodeAnimation' => true,
+					'blendingColor'   => 'ffffff',
+					'strip'           => true,
+				]
+			);
+
+			// Read image.
+			$image = $manager->read( $args['original_path'] );
+
+			// Resize.
+			if ( isset( $args['height'] ) && $args['height'] ) {
+				$image->cover( $args['width'], $args['height'] );
+			} else {
+				$image->scaleDown( $args['width'] );
+			}
+
+			// Save.
+			$image->save( $args['cache_path'], 'webp', 80 );
+
+			// Verify.
+			if ( ! file_exists( $args['cache_path'] ) || filesize( $args['cache_path'] ) === 0 ) {
+				throw new \Exception( 'Failed to save processed image or file is empty' );
+			}
+
+		} catch ( \Exception $e ) {
+			// Log the error
+			$this->log( sprintf(
+				'Error processing image %s - %s',
+				$args['original_path'],
+				$e->getMessage()
+			) );
+
+			// Clean up any partially processed files.
+			if ( file_exists( $args['cache_path'] ) ) {
+				@unlink( $args['cache_path'] );
+			}
+
+			// Schedule retry if under retry limit.
+			if ( ! isset( $args['retry_count'] ) || $args['retry_count'] < 3 ) {
+				$args['retry_count'] = ( $args['retry_count'] ?? 0 ) + 1;
+
+				// For retries, we'll still use the 5-minute interval.
+				wp_schedule_single_event(
+					time() + ( 5 * MINUTE_IN_SECONDS ),
+					'mai_process_image',
+					[ $args ]
+				);
+
+				// Keep the lock for retries.
+				return;
+			}
+
+			// If we've exceeded retry attempts, clean up the lock.
+			delete_transient( $lock_key );
+			delete_transient( $lock_key . '_time' );
+
+		} finally {
+			// Only clean up the lock if processing was successful.
+			if ( ! isset( $e ) ) {
+				delete_transient( $lock_key );
+				delete_transient( $lock_key . '_time' );
+			}
+		}
+	}
+
+	/**
+	 * Logs messages if WP_DEBUG is enabled.
+	 *
+	 * @since TBD
+	 *
+	 * @param string $message The message to log.
+	 *
+	 * @return void
+	 */
+	private function log( $message ) {
+		// Bail if debugging is not enabled
+		if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
+			return;
+		}
+
+		// Format the message
+		$formatted = sprintf( 'Mai Performance Images: %s', $message );
+
+		// Log the message
+		error_log( $formatted );
+
+		// If ray is available, use it for additional debugging
+		if ( function_exists( 'ray' ) ) {
+			ray( $formatted )->label( 'Mai Performance Images' );
+		}
 	}
 }
 
