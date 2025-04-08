@@ -36,12 +36,12 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'Mai\\PerformanceImages\\AbstractImages' => __DIR__ . '/../..' . '/classes/class-abstract-images.php',
-        'Mai\\PerformanceImages\\BlockSettings' => __DIR__ . '/../..' . '/classes/class-block-settings.php',
+        'Mai\\PerformanceImages\\ImageLoading' => __DIR__ . '/../..' . '/classes/class-image-loading.php',
         'Mai\\PerformanceImages\\ImageProcessor' => __DIR__ . '/../..' . '/classes/class-image-processor.php',
         'Mai\\PerformanceImages\\ImageRouter' => __DIR__ . '/../..' . '/classes/class-image-router.php',
         'Mai\\PerformanceImages\\Images' => __DIR__ . '/../..' . '/classes/class-images.php',
         'Mai\\PerformanceImages\\Logger' => __DIR__ . '/../..' . '/classes/class-logger.php',
-        'Mai\\PerformanceImages\\MaiEngineImages' => __DIR__ . '/../..' . '/classes/class-mai-engine-images.php',
+        'Mai\\PerformanceImages\\MaiEngine' => __DIR__ . '/../..' . '/classes/class-mai-engine.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

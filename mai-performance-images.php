@@ -31,7 +31,7 @@ register_activation_hook( __FILE__, function() {
 } );
 
 // Initialize image handling with dependency injection.
-$settings  = new BlockSettings();
+$loading   = new ImageLoading();
 $processor = new ImageProcessor();
 $router    = new ImageRouter( $processor );
 $images    = new Images();
@@ -49,5 +49,5 @@ add_action( 'after_setup_theme', function() {
 	}
 
 	// Initialize Mai Engine Images.
-	new MaiEngineImages();
+	new MaiEngine();
 } );

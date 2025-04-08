@@ -59,11 +59,11 @@ class Logger {
 			return;
 		}
 
+		// Format the message.
+		$formatted = sprintf( 'Mai Performance Images: %s', $message );
+
 		// If logging.
 		if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
-			// Format the message.
-			$formatted = sprintf( 'Mai Performance Images: %s', $message );
-
 			// Log the message.
 			error_log( $formatted );
 		}

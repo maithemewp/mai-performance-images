@@ -6,11 +6,11 @@ namespace Mai\PerformanceImages;
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
- * Mai Performance Block Settings class.
+ * Mai Performance Images Image Loading class.
  *
  * @since 0.1.0
  */
-class BlockSettings {
+final class ImageLoading {
 	/**
 	 * Constructor.
 	 *

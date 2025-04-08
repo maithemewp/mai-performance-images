@@ -8,10 +8,10 @@ $baseDir = dirname($vendorDir);
 return array(
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
     'Mai\\PerformanceImages\\AbstractImages' => $baseDir . '/classes/class-abstract-images.php',
-    'Mai\\PerformanceImages\\BlockSettings' => $baseDir . '/classes/class-block-settings.php',
+    'Mai\\PerformanceImages\\ImageLoading' => $baseDir . '/classes/class-image-loading.php',
     'Mai\\PerformanceImages\\ImageProcessor' => $baseDir . '/classes/class-image-processor.php',
     'Mai\\PerformanceImages\\ImageRouter' => $baseDir . '/classes/class-image-router.php',
     'Mai\\PerformanceImages\\Images' => $baseDir . '/classes/class-images.php',
     'Mai\\PerformanceImages\\Logger' => $baseDir . '/classes/class-logger.php',
-    'Mai\\PerformanceImages\\MaiEngineImages' => $baseDir . '/classes/class-mai-engine-images.php',
+    'Mai\\PerformanceImages\\MaiEngine' => $baseDir . '/classes/class-mai-engine.php',
 );

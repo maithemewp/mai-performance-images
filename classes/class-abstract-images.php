@@ -88,6 +88,7 @@ abstract class AbstractImages {
 	 */
 	protected function core_hooks(): void {
 		add_filter( 'wp_content_img_tag', [ $this, 'filter_content_img_tag' ], 999, 3 );
+		add_filter( 'get_custom_logo',    [ $this, 'filter_custom_logo' ], 999, 2 );
 	}
 
 	/**
@@ -195,6 +196,9 @@ abstract class AbstractImages {
 			$image_id = $tags->get_attribute( 'data-mai-image-id' );
 			$image_id = $image_id ?: $args['image_id'];
 			$image_id = (int) $image_id;
+
+			// Remove data-mai-image-id attribute.
+			$tags->remove_attribute( 'data-mai-image-id' );
 
 			// If we have an image ID, get the full size URL.
 			if ( $image_id ) {
@@ -336,8 +340,34 @@ abstract class AbstractImages {
 	 * @return string
 	 */
 	public function filter_content_img_tag( string $filtered_image, string $context, int $attachment_id ): string {
+		return $this->handle_attributes( $filtered_image );
+	}
+
+	/**
+	 * Filters the custom logo.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $html The HTML content.
+	 *
+	 * @return string
+	 */
+	public function filter_custom_logo( string $html ): string {
+		return $this->handle_attributes( $html );
+	}
+
+	/**
+	 * Handles the attributes of our dynamic images.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $html The HTML content.
+	 *
+	 * @return string
+	 */
+	public function handle_attributes( string $html ): string {
 		// Tag processor.
-		$tags = new \WP_HTML_Tag_Processor( $filtered_image );
+		$tags = new \WP_HTML_Tag_Processor( $html );
 
 		// Loop through tags.
 		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
@@ -386,9 +416,9 @@ abstract class AbstractImages {
 		}
 
 		// Get the updated content.
-		$filtered_image = $tags->get_updated_html();
+		$html = $tags->get_updated_html();
 
-		return $filtered_image;
+		return $html;
 	}
 
 	/**
