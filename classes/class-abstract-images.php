@@ -92,6 +92,54 @@ abstract class AbstractImages {
 	}
 
 	/**
+	 * Check if a cached WebP file exists and queue it for processing if it doesn't.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $original_path The original image path.
+	 * @param string $filename      The filename without extension.
+	 * @param int    $width         The target width.
+	 * @param int    $height        The target height.
+	 *
+	 * @return string The URL to use for the image.
+	 */
+	protected function check_cached_file( string $original_path, string $filename, int $width, ?int $height = null ): string {
+		// Get uploads directory info.
+		$uploads = wp_get_upload_dir();
+
+		// Generate cache path in the mai-performance-images directory.
+		$dir_name   = basename( dirname( $original_path ) );
+		$cache_dir  = rtrim( $uploads['basedir'] . '/mai-performance-images/' . ( '.' === $dir_name ? '' : $dir_name ), '/' );
+		$cache_path = $cache_dir . '/' . $filename . '-' . $width . 'x' . ( $height ?? 'auto' ) . '.webp';
+
+		// Get full path to original image.
+		$full_path = $uploads['basedir'] . '/' . $original_path;
+
+		// Check if cached file exists and is not empty.
+		if ( file_exists( $cache_path ) && filesize( $cache_path ) > 0 ) {
+			// Return the URL to the cached file.
+			return str_replace( $uploads['basedir'], $uploads['baseurl'], $cache_path );
+		}
+
+		// Queue the image for processing.
+		wp_schedule_single_event(
+			time() + 10, // Process in 10 seconds
+			'mai_process_image',
+			[
+				[
+					'original_path' => $full_path,
+					'cache_path'    => $cache_path,
+					'width'         => $width,
+					'height'        => $height,
+				]
+			]
+		);
+
+		// Return the original image URL for now.
+		return $uploads['baseurl'] . '/' . $original_path;
+	}
+
+	/**
 	 * Process an image tag to add dynamic image loading.
 	 *
 	 * @since 0.1.0
@@ -219,9 +267,6 @@ abstract class AbstractImages {
 				return $w <= $args['max_width'];
 			} );
 
-			// Get the site URL for building absolute URLs.
-			$site_url = site_url();
-
 			// Build srcset.
 			foreach ( $widths as $w ) {
 				$height = null;
@@ -243,9 +288,8 @@ abstract class AbstractImages {
 					$height = round( $w / $ratio );
 				}
 
-				// Build the URL with the original extension.
-				$image_url = $site_url . '/mai-performance-images/' . $path;
-				$image_url = str_replace( '.' . $extension, '-' . $w . 'x' . ( $height ?? 'auto' ) . '.' . $extension, $image_url );
+				// Check for cached file and queue for processing if needed.
+				$image_url = $this->check_cached_file( $path, $path_parts['filename'], $w, $height );
 				$srcset[]  = "{$image_url} {$w}w";
 			}
 
@@ -278,9 +322,6 @@ abstract class AbstractImages {
 				$sizes = implode( ', ', $sizes_parts );
 			}
 
-			// Create the src URL with the original extension.
-			$src_url = $site_url . '/mai-performance-images/' . $path;
-
 			// Calculate height for src URL if needed
 			$src_height = null;
 			if ( $args['aspect_ratio'] ) {
@@ -299,8 +340,8 @@ abstract class AbstractImages {
 				$src_height = round( $args['src_width'] / $ratio );
 			}
 
-			// Build the src URL.
-			$src_url = str_replace( '.' . $extension, '-' . $args['src_width'] . 'x' . ( $src_height ?? 'auto' ) . '.' . $extension, $src_url );
+			// Check for cached file and queue for processing if needed.
+			$src_url = $this->check_cached_file( $path, $path_parts['filename'], $args['src_width'], $src_height );
 
 			// Set the attributes array.
 			$attr = [

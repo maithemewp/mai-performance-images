@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       Mai Performance Images
- * Description:       Adds dynamic image loading to the block editor.
+ * Description:       Optimizes image delivery through automatic resizing and WebP conversion with static file caching.
  * Version:           0.1.0
  * Requires at least: 6.7
  * Requires PHP:      8.0
@@ -19,21 +19,9 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // Include vendor files.
 require_once __DIR__ . '/vendor/autoload.php';
 
-/**
- * Flush rewrite rules on activation.
- *
- * @since 0.1.0
- *
- * @return void
- */
-register_activation_hook( __FILE__, function() {
-	flush_rewrite_rules();
-} );
-
 // Initialize image handling with dependency injection.
 $loading   = new ImageLoading();
 $processor = new ImageProcessor();
-$router    = new ImageRouter( $processor );
 $images    = new Images();
 
 /**
@@ -49,5 +37,7 @@ add_action( 'after_setup_theme', function() {
 	}
 
 	// Initialize Mai Engine Images.
-	new MaiEngine();
+	if ( class_exists( '\Mai\PerformanceImages\MaiEngine' ) ) {
+		new MaiEngine();
+	}
 } );

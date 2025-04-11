@@ -50,17 +50,18 @@ class Logger {
 	 * @since 0.1.0
 	 *
 	 * @param string $message The message to log.
+	 * @param string $type    The type of message (error, warning, info, success).
 	 *
 	 * @return void
 	 */
-	public function log( string $message ): void {
-		// Bail if debugging is not enabled.
-		if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
+	private function log( string $message, string $type = 'error' ): void {
+		// Always log errors, for other types only log if debugging is enabled.
+		if ( 'error' !== $type && ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) ) {
 			return;
 		}
 
 		// Format the message.
-		$formatted = sprintf( 'Mai Performance Images: %s', $message );
+		$formatted = sprintf( 'Mai Performance Images [%s]: %s', strtoupper( $type ), $message );
 
 		// If logging.
 		if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
@@ -80,6 +81,7 @@ class Logger {
 
 	/**
 	 * Log an error message.
+	 * Always logs regardless of debug settings.
 	 *
 	 * @since 0.1.0
 	 *
@@ -87,12 +89,13 @@ class Logger {
 	 *
 	 * @return void
 	 */
-	public function error( $message ) {
+	public function error( string $message ): void {
 		$this->log( $message, 'error' );
 	}
 
 	/**
 	 * Log a warning message.
+	 * Only logs if debugging is enabled.
 	 *
 	 * @since 0.1.0
 	 *
@@ -100,12 +103,13 @@ class Logger {
 	 *
 	 * @return void
 	 */
-	public function warning( $message ) {
+	public function warning( string $message ): void {
 		$this->log( $message, 'warning' );
 	}
 
 	/**
 	 * Log a success message.
+	 * Only logs if debugging is enabled.
 	 *
 	 * @since 0.1.0
 	 *
@@ -113,12 +117,13 @@ class Logger {
 	 *
 	 * @return void
 	 */
-	public function success( $message ) {
+	public function success( string $message ): void {
 		$this->log( $message, 'success' );
 	}
 
 	/**
 	 * Log an info message.
+	 * Only logs if debugging is enabled.
 	 *
 	 * @since 0.1.0
 	 *
@@ -126,7 +131,7 @@ class Logger {
 	 *
 	 * @return void
 	 */
-	public function info( $message ) {
+	public function info( string $message ): void {
 		$this->log( $message, 'info' );
 	}
 }

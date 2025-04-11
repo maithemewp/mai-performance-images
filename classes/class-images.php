@@ -60,6 +60,7 @@ class Images extends AbstractImages {
 						'desktop' => '100vw',
 					],
 				];
+				break;
 			case 'wide':
 				$args = [
 					'max_width' => $this->wide_size * 2,
@@ -69,6 +70,7 @@ class Images extends AbstractImages {
 						'desktop' => $this->wide_size . 'px',
 					],
 				];
+				break;
 			default:
 				$args = [
 					'max_width' => $this->tablet_breakpoint * 2,
@@ -120,6 +122,7 @@ class Images extends AbstractImages {
 						'desktop' => '50vw',
 					],
 				];
+				break;
 			case 'wide':
 				$args = [
 					'max_width' => $this->wide_size * 2,
@@ -129,6 +132,7 @@ class Images extends AbstractImages {
 						'desktop' => $this->wide_size / 2 . 'px',
 					],
 				];
+				break;
 			default:
 				$args = [
 					'max_width' => $this->tablet_breakpoint * 2,
@@ -215,6 +219,7 @@ class Images extends AbstractImages {
 						'desktop' => $width ? $width . 'px' : '100vw',
 					],
 				];
+				break;
 			case 'wide':
 				$args = [
 					'max_width' => $this->wide_size * 2,
@@ -224,6 +229,7 @@ class Images extends AbstractImages {
 						'desktop' => $width ? $width . 'px' : '90vw',
 					],
 				];
+				break;
 			default:
 				$args = [
 					'max_width' => $this->desktop_breakpoint * 2,
