@@ -209,7 +209,6 @@ final class ImageProcessor {
 	 *     @type string $cache_path    Path where the processed image should be saved.
 	 *     @type int    $width         Target width for the processed image.
 	 *     @type int    $height        Optional. Target height for the processed image.
-	 *     @type int    $retry_count   Optional. Number of times this processing has been retried.
 	 * }
 	 *
 	 * @return void
@@ -221,7 +220,6 @@ final class ImageProcessor {
 			'cache_path'    => '',
 			'width'         => 0,
 			'height'        => null,
-			'retry_count'   => 0,
 		] );
 
 		// Validate required arguments.
@@ -235,138 +233,56 @@ final class ImageProcessor {
 			return;
 		}
 
-		// Check if the image is already processed
+		// Check if the image is already processed.
 		if ( file_exists( $args['cache_path'] ) && filesize( $args['cache_path'] ) > 0 ) {
+			// Decrement queue count since this job is complete.
+			$queue_count = (int) get_transient( 'mai_image_queue_count' );
+			if ( $queue_count > 0 ) {
+				set_transient( 'mai_image_queue_count', $queue_count - 1, HOUR_IN_SECONDS );
+			}
 			return;
 		}
 
-		// Set lock duration and key.
-		$lock_duration = 10; // seconds - reduced from 30
-		$lock_key      = 'mai_processing_' . md5( $args['cache_path'] );
-
-		// First check if there's an existing lock.
-		if ( get_transient( $lock_key ) ) {
-			// Check if this is a retry attempt.
-			$is_retry = $args['retry_count'] > 0;
-
-			// Get lock time.
-			$lock_time = get_transient( $lock_key . '_time' );
-
-			// If this is not a retry and the lock is less than the duration old, bail.
-			if ( ! $is_retry && $lock_time && ( time() - $lock_time < $lock_duration ) ) {
-				return;
-			}
-
-			// Double check if image was created while we were locked.
-			if ( file_exists( $args['cache_path'] ) && filesize( $args['cache_path'] ) > 0 ) {
-				delete_transient( $lock_key );
-				delete_transient( $lock_key . '_time' );
-				return;
-			}
-
-			// Clear the old lock if it's expired
-			if ( $lock_time && ( time() - $lock_time >= $lock_duration ) ) {
-				delete_transient( $lock_key );
-				delete_transient( $lock_key . '_time' );
-			}
+		// Check if original file exists.
+		if ( ! file_exists( $args['original_path'] ) ) {
+			$this->logger->error( 'Original image file not found', [ 'path' => $args['original_path'] ] );
+			return;
 		}
 
-		// Set processing lock with timestamp.
-		set_transient( $lock_key, true, $lock_duration );
-		set_transient( $lock_key . '_time', time(), $lock_duration );
+		// Create cache directory if it doesn't exist.
+		$cache_dir = dirname( $args['cache_path'] );
+		if ( ! file_exists( $cache_dir ) ) {
+			wp_mkdir_p( $cache_dir );
+		}
 
+		// Process the image.
 		try {
-			// Check if the original file exists.
-			if ( ! file_exists( $args['original_path'] ) ) {
-				throw new \Exception( 'Original image file not found: ' . $args['original_path'] );
-			}
+			$this->process_image( $args['original_path'], $args['cache_path'], $args['width'], $args['height'] );
 
-			// One final check before processing.
-			if ( file_exists( $args['cache_path'] ) && filesize( $args['cache_path'] ) > 0 ) {
-				return;
-			}
-
-			// Initialize ImageManager.
-			// Check if the Driver class exists.
-			if ( ! class_exists( Driver::class ) ) {
-				throw new \Exception( 'ImageManager Driver class not found' );
-			}
-
-			$manager = new ImageManager(
-				Driver::class,
-				[
-					'autoOrientation' => false,
-					'decodeAnimation' => true,
-					'blendingColor'   => 'ffffff',
-					'strip'           => true,
-				]
-			);
-
-			// Read image.
-			$image = $manager->read( $args['original_path'] );
-
-			// Resize.
-			if ( $args['height'] ) {
-				$image->cover( $args['width'], $args['height'] );
-			} else {
-				$image->scaleDown( $args['width'] );
-			}
-
-			// Get image quality.
-			$quality = apply_filters( 'mai_performance_images_image_quality', 80, $args );
-
-			// Save.
-			$image->save( $args['cache_path'], 'webp', $quality );
-
-			// Verify.
+			// Verify the generated file exists and is not empty.
 			if ( ! file_exists( $args['cache_path'] ) || filesize( $args['cache_path'] ) === 0 ) {
+				// Clean up any empty or failed files.
+				if ( file_exists( $args['cache_path'] ) ) {
+					@unlink( $args['cache_path'] );
+				}
 				throw new \Exception( 'Failed to save processed image or file is empty' );
 			}
 
+			// Decrement queue count on success.
+			$queue_count = (int) get_transient( 'mai_image_queue_count' );
+			if ( $queue_count > 0 ) {
+				set_transient( 'mai_image_queue_count', $queue_count - 1, HOUR_IN_SECONDS );
+			}
 		} catch ( \Exception $e ) {
-			// Log the error.
-			$this->logger->error( sprintf(
-				'Error processing image %s - %s',
-				$args['original_path'],
-				$e->getMessage()
-			) );
+			$this->logger->error( 'Image processing failed', [
+				'error' => $e->getMessage(),
+				'path'  => $args['original_path']
+			] );
 
-			// Clean up any partially processed files.
-			if ( file_exists( $args['cache_path'] ) ) {
-				@unlink( $args['cache_path'] );
-			}
-
-			// Get the max retry count.
-			$max_retries = (int) apply_filters( 'mai_performance_images_max_retries', 3 );
-
-			// Schedule retry if under retry limit.
-			if ( $args['retry_count'] < $max_retries ) {
-				$args['retry_count']++;
-
-				// For retries, we'll use a 3-minute interval.
-				wp_schedule_single_event(
-					time() + ( 3 * MINUTE_IN_SECONDS ),
-					'mai_process_image',
-					[ $args ]
-				);
-
-				// Keep the lock for retries.
-				return;
-			}
-
-			// If we've exceeded retry attempts, clean up the lock.
-			$this->logger->error( sprintf(
-				'Exceeded max retries for image: %s',
-				$args['original_path']
-			) );
-			delete_transient( $lock_key );
-			delete_transient( $lock_key . '_time' );
-
-		} finally {
-			// Only clean up the lock if processing was successful.
-			if ( ! isset( $e ) ) {
-				delete_transient( $lock_key );
-				delete_transient( $lock_key . '_time' );
+			// Still decrement queue count on failure.
+			$queue_count = (int) get_transient( 'mai_image_queue_count' );
+			if ( $queue_count > 0 ) {
+				set_transient( 'mai_image_queue_count', $queue_count - 1, HOUR_IN_SECONDS );
 			}
 		}
 	}

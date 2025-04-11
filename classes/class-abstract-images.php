@@ -91,52 +91,99 @@ abstract class AbstractImages {
 		add_filter( 'get_custom_logo',    [ $this, 'filter_custom_logo' ], 999, 2 );
 	}
 
+
 	/**
-	 * Check if a cached WebP file exists and queue it for processing if it doesn't.
+	 * Filters an img tag within the content for a given context.
+	 * WP filter callbacks must be public.
 	 *
 	 * @since 0.1.0
 	 *
-	 * @param string $original_path The original image path.
-	 * @param string $filename      The filename without extension.
-	 * @param int    $width         The target width.
-	 * @param int    $height        The target height.
+	 * @param string $filtered_image Full img tag with attributes that will replace the source img tag.
+	 * @param string $context        Additional context, like the current filter name or the function name from where this was called.
+	 * @param int    $attachment_id  The image attachment ID. May be 0 in case the image is not an attachment.
 	 *
-	 * @return string The URL to use for the image.
+	 * @return string
 	 */
-	protected function check_cached_file( string $original_path, string $filename, int $width, ?int $height = null ): string {
-		// Get uploads directory info.
-		$uploads = wp_get_upload_dir();
+	public function filter_content_img_tag( string $filtered_image, string $context, int $attachment_id ): string {
+		return $this->handle_attributes( $filtered_image );
+	}
 
-		// Generate cache path in the mai-performance-images directory.
-		$dir_name   = basename( dirname( $original_path ) );
-		$cache_dir  = rtrim( $uploads['basedir'] . '/mai-performance-images/' . ( '.' === $dir_name ? '' : $dir_name ), '/' );
-		$cache_path = $cache_dir . '/' . $filename . '-' . $width . 'x' . ( $height ?? 'auto' ) . '.webp';
+	/**
+	 * Filters the custom logo.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $html The HTML content.
+	 *
+	 * @return string
+	 */
+	public function filter_custom_logo( string $html ): string {
+		return $this->handle_attributes( $html );
+	}
 
-		// Get full path to original image.
-		$full_path = $uploads['basedir'] . '/' . $original_path;
+	/**
+	 * Handles the attributes of our dynamic images.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $html The HTML content.
+	 *
+	 * @return string
+	 */
+	public function handle_attributes( string $html ): string {
+		// Tag processor.
+		$tags = new \WP_HTML_Tag_Processor( $html );
 
-		// Check if cached file exists and is not empty.
-		if ( file_exists( $cache_path ) && filesize( $cache_path ) > 0 ) {
-			// Return the URL to the cached file.
-			return str_replace( $uploads['basedir'], $uploads['baseurl'], $cache_path );
+		// Loop through tags.
+		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
+			$loading  = $tags->get_attribute( 'data-mai-loading' );
+			$attr     = $tags->get_attribute( 'data-mai-image' );
+
+			// If loading attribute.
+			if ( $loading ) {
+				// Remove the data-mai-loading attribute.
+				$tags->remove_attribute( 'data-mai-loading' );
+
+				// Set the loading attribute.
+				$tags->set_attribute( 'loading', $loading );
+
+				// If eager, set fetchpriority to high.
+				if ( 'eager' === $loading ) {
+					$tags->set_attribute( 'fetchpriority', 'high' );
+				}
+			}
+
+			// If attributes.
+			if ( $attr ) {
+				// Unset the data-mai-image attribute.
+				$tags->remove_attribute( 'data-mai-image' );
+
+				// Decode the attributes.
+				$attr = json_decode( $attr, true );
+
+				// Bail if no attributes.
+				if ( ! $attr ) {
+					continue;
+				}
+
+				// Parse the attributes.
+				$attr = wp_parse_args( $attr, [
+					'src'    => '',
+					'srcset' => '',
+					'sizes'  => '',
+				] );
+
+				// Set the attributes.
+				$tags->set_attribute( 'src', $attr['src'] );
+				$tags->set_attribute( 'srcset', $attr['srcset'] );
+				$tags->set_attribute( 'sizes', $attr['sizes'] );
+			}
 		}
 
-		// Queue the image for processing.
-		wp_schedule_single_event(
-			time() + 10, // Process in 10 seconds
-			'mai_process_image',
-			[
-				[
-					'original_path' => $full_path,
-					'cache_path'    => $cache_path,
-					'width'         => $width,
-					'height'        => $height,
-				]
-			]
-		);
+		// Get the updated content.
+		$html = $tags->get_updated_html();
 
-		// Return the original image URL for now.
-		return $uploads['baseurl'] . '/' . $original_path;
+		return $html;
 	}
 
 	/**
@@ -268,6 +315,7 @@ abstract class AbstractImages {
 			} );
 
 			// Build srcset.
+			$all_webp_available = true;
 			foreach ( $widths as $w ) {
 				$height = null;
 
@@ -289,8 +337,14 @@ abstract class AbstractImages {
 				}
 
 				// Check for cached file and queue for processing if needed.
-				$image_url = $this->check_cached_file( $path, $path_parts['filename'], $w, $height );
-				$srcset[]  = "{$image_url} {$w}w";
+				$result = $this->check_cached_file( $path, $path_parts['filename'], $w, $height );
+
+				// If not successful, mark as not all available.
+				if ( ! $result['success'] ) {
+					$all_webp_available = false;
+				}
+
+				$srcset[] = "{$result['url']} {$w}w";
 			}
 
 			// Check if all size values are the same using array_unique.
@@ -322,7 +376,7 @@ abstract class AbstractImages {
 				$sizes = implode( ', ', $sizes_parts );
 			}
 
-			// Calculate height for src URL if needed
+			// Calculate height for src URL if needed.
 			$src_height = null;
 			if ( $args['aspect_ratio'] ) {
 				// Parse aspect ratio (e.g., "16/9" or "1.5").
@@ -341,20 +395,28 @@ abstract class AbstractImages {
 			}
 
 			// Check for cached file and queue for processing if needed.
-			$src_url = $this->check_cached_file( $path, $path_parts['filename'], $args['src_width'], $src_height );
+			$src_result = $this->check_cached_file( $path, $path_parts['filename'], $args['src_width'], $src_height );
 
-			// Set the attributes array.
-			$attr = [
-				'src'    => $src_url,
-				'srcset' => implode( ', ', $srcset ),
-				'sizes'  => $sizes,
-			];
+			// If src is not successful, mark as not all available.
+			if ( ! $src_result['success'] ) {
+				$all_webp_available = false;
+			}
 
-			// Filter the attributes.
-			$attr = apply_filters( 'mai_performance_images_image_attributes', $attr, $args );
+			// Only modify attributes if all WebP versions are available.
+			if ( $all_webp_available ) {
+				// Set the attributes array.
+				$attr = [
+					'src'    => $src_result['url'],
+					'srcset' => implode( ', ', $srcset ),
+					'sizes'  => $sizes,
+				];
 
-			// Set the attributes.
-			$tags->set_attribute( 'data-mai-image', esc_attr( wp_json_encode( $attr ) ) );
+				// Filter the attributes.
+				$attr = apply_filters( 'mai_performance_images_image_attributes', $attr, $args );
+
+				// Set the attributes.
+				$tags->set_attribute( 'data-mai-image', esc_attr( wp_json_encode( $attr ) ) );
+			}
 
 			// Increment processed count.
 			$images_processed++;
@@ -369,97 +431,72 @@ abstract class AbstractImages {
 	}
 
 	/**
-	 * Filters an img tag within the content for a given context.
-	 * WP filter callbacks must be public.
+	 * Check if a cached WebP file exists and queue it for processing if it doesn't.
 	 *
 	 * @since 0.1.0
 	 *
-	 * @param string $filtered_image Full img tag with attributes that will replace the source img tag.
-	 * @param string $context        Additional context, like the current filter name or the function name from where this was called.
-	 * @param int    $attachment_id  The image attachment ID. May be 0 in case the image is not an attachment.
+	 * @param string $original_path The original image path.
+	 * @param string $filename      The filename without extension.
+	 * @param int    $width         The target width.
+	 * @param int    $height        The target height.
 	 *
-	 * @return string
+	 * @return array {
+	 *     The result of the check.
+	 *
+	 *     @type bool   $success Whether the WebP version exists and is ready.
+	 *     @type string $url     The URL to use for the image.
+	 * }
 	 */
-	public function filter_content_img_tag( string $filtered_image, string $context, int $attachment_id ): string {
-		return $this->handle_attributes( $filtered_image );
-	}
+	protected function check_cached_file( string $original_path, string $filename, int $width, ?int $height = null ): array {
+		// Get uploads directory info.
+		$uploads = wp_get_upload_dir();
 
-	/**
-	 * Filters the custom logo.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $html The HTML content.
-	 *
-	 * @return string
-	 */
-	public function filter_custom_logo( string $html ): string {
-		return $this->handle_attributes( $html );
-	}
+		// Generate cache path in the mai-performance-images directory.
+		$dir_name   = basename( dirname( $original_path ) );
+		$cache_dir  = rtrim( $uploads['basedir'] . '/mai-performance-images/' . ( '.' === $dir_name ? '' : $dir_name ), '/' );
+		$cache_path = $cache_dir . '/' . $filename . '-' . $width . 'x' . ( $height ?? 'auto' ) . '.webp';
 
-	/**
-	 * Handles the attributes of our dynamic images.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $html The HTML content.
-	 *
-	 * @return string
-	 */
-	public function handle_attributes( string $html ): string {
-		// Tag processor.
-		$tags = new \WP_HTML_Tag_Processor( $html );
+		// Get full path to original image.
+		$full_path = $uploads['basedir'] . '/' . $original_path;
 
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
-			$loading  = $tags->get_attribute( 'data-mai-loading' );
-			$attr     = $tags->get_attribute( 'data-mai-image' );
-
-			// If loading attribute.
-			if ( $loading ) {
-				// Remove the data-mai-loading attribute.
-				$tags->remove_attribute( 'data-mai-loading' );
-
-				// Set the loading attribute.
-				$tags->set_attribute( 'loading', $loading );
-
-				// If eager, set fetchpriority to high.
-				if ( 'eager' === $loading ) {
-					$tags->set_attribute( 'fetchpriority', 'high' );
-				}
-			}
-
-			// If attributes.
-			if ( $attr ) {
-				// Unset the data-mai-image attribute.
-				$tags->remove_attribute( 'data-mai-image' );
-
-				// Decode the attributes.
-				$attr = json_decode( $attr, true );
-
-				// Bail if no attributes.
-				if ( ! $attr ) {
-					continue;
-				}
-
-				// Parse the attributes.
-				$attr = wp_parse_args( $attr, [
-					'src'    => '',
-					'srcset' => '',
-					'sizes'  => '',
-				] );
-
-				// Set the attributes.
-				$tags->set_attribute( 'src', $attr['src'] );
-				$tags->set_attribute( 'srcset', $attr['srcset'] );
-				$tags->set_attribute( 'sizes', $attr['sizes'] );
-			}
+		// Check if cached file exists and is not empty.
+		if ( file_exists( $cache_path ) && filesize( $cache_path ) > 0 ) {
+			// Return the URL to the cached file.
+			return [
+				'success' => true,
+				'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $cache_path ),
+			];
 		}
 
-		// Get the updated content.
-		$html = $tags->get_updated_html();
+		// Get current queue count.
+		$queue_count = (int) get_transient( 'mai_image_queue_count' );
+		$max_queue   = apply_filters( 'mai_performance_images_max_queue', 100 );
 
-		return $html;
+		// Only queue if we're under the limit.
+		if ( $queue_count < $max_queue ) {
+			// Queue the image for processing.
+			wp_schedule_single_event(
+				time() + 1, // Process in 1 second.
+				'mai_process_image',
+				[
+					[
+						'original_path' => $full_path,
+						'cache_path'    => $cache_path,
+						'width'         => $width,
+						'height'        => $height,
+					]
+				]
+			);
+
+			// Increment queue count.
+			set_transient( 'mai_image_queue_count', $queue_count + 1, HOUR_IN_SECONDS );
+		}
+
+		// Return the original image URL for now.
+		return [
+			'success' => false,
+			'url'     => $uploads['baseurl'] . '/' . $original_path,
+		];
 	}
 
 	/**
