@@ -53,6 +53,7 @@ final class CLI {
 	 */
 	private function get_queue() {
 		if ( null === $this->queue ) {
+			/** @disregard P1000 */
 			$this->queue = new BackgroundProcess();
 		}
 

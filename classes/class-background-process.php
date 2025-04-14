@@ -82,6 +82,7 @@ class BackgroundProcess extends \WP_Background_Process {
 	 */
 	protected function task( $item ) {
 		// Parse args with defaults.
+		/** @disregard P1008 */
 		$args = wp_parse_args( $item, [
 			'original_path' => '',
 			'cache_path'    => '',
