@@ -67,6 +67,11 @@ add_filter( 'http_request_args', __NAMESPACE__ . '\http_request_args', 10, 2 );
  * @return array Modified HTTP request arguments.
  */
 function http_request_args( $r, $url ) {
+	// Bail if no url.
+	if ( ! $url ) {
+		return $r;
+	}
+
 	// Parse the URL to get query parameters.
 	$query_params = [];
 	parse_str( parse_url( $url, PHP_URL_QUERY ), $query_params );
