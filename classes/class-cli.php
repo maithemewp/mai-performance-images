@@ -121,31 +121,6 @@ final class CLI {
 		\WP_CLI::log( sprintf( '• Is Paused:     %s', $queue->is_paused() ? 'Yes' : 'No' ) );
 		\WP_CLI::log( sprintf( '• Is Cancelled:  %s', $queue->is_cancelled() ? 'Yes' : 'No' ) );
 		\WP_CLI::log( sprintf( '• Batch Count:   %d', count( $queue->get_batches() ) ) );
-
-		// Show batch details
-		$batches = $queue->get_batches();
-		if ( ! empty( $batches ) ) {
-			\WP_CLI::log( "\nBatch Details:" );
-			foreach ( $batches as $index => $batch ) {
-				\WP_CLI::log( sprintf( "Batch %d:", $index + 1 ) );
-				foreach ( $batch->data as $item ) {
-					\WP_CLI::log( sprintf(
-						"  • %s -> %s (%dx%d)",
-						$item['original_path'],
-						$item['cache_path'],
-						$item['width'],
-						$item['height'] ?? 'auto'
-					) );
-				}
-			}
-		}
-
-		// If queue is not processing but has items, try to force process
-		if ( $queue->is_queued() && ! $queue->is_processing() && ! $queue->is_paused() && ! $queue->is_cancelled() ) {
-			\WP_CLI::log( "\nAttempting to process queue..." );
-			$queue->maybe_handle();
-			\WP_CLI::log( 'Queue processing started. Check status again in a few moments.' );
-		}
 	}
 
 	/**
