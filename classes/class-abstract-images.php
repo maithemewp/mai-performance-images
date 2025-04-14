@@ -121,6 +121,7 @@ abstract class AbstractImages {
 	 * @return void
 	 */
 	public function set_queue(): void {
+		/** @disregard P1009 */
 		$this->queue = new BackgroundProcess();
 	}
 

@@ -6,7 +6,15 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'Attribute' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Attribute.php',
+    'CURLStringFile' => $vendorDir . '/symfony/polyfill-php81/Resources/stubs/CURLStringFile.php',
+    'ComposerAutoloaderInitef6a4536c3dd28c829ad8ff1c2eb409e' => $baseDir . '/classes/Dependencies/composer/autoload_real.php',
+    'Composer\\Autoload\\ClassLoader' => $baseDir . '/classes/Dependencies/composer/ClassLoader.php',
+    'Composer\\Autoload\\ComposerStaticInitef6a4536c3dd28c829ad8ff1c2eb409e' => $baseDir . '/classes/Dependencies/composer/autoload_static.php',
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
+    'JsonException' => $vendorDir . '/symfony/polyfill-php73/Resources/stubs/JsonException.php',
+    'MaiPerformanceImages_WP_Async_Request' => $baseDir . '/classes/Dependencies/deliciousbrains/wp-background-processing/classes/wp-async-request.php',
+    'MaiPerformanceImages_WP_Background_Process' => $baseDir . '/classes/Dependencies/deliciousbrains/wp-background-processing/classes/wp-background-process.php',
     'Mai\\PerformanceImages\\AbstractImages' => $baseDir . '/classes/class-abstract-images.php',
     'Mai\\PerformanceImages\\BackgroundProcess' => $baseDir . '/classes/class-background-process.php',
     'Mai\\PerformanceImages\\CLI' => $baseDir . '/classes/class-cli.php',
@@ -17,6 +25,11 @@ return array(
     'Mai\\PerformanceImages\\Logger' => $baseDir . '/classes/class-logger.php',
     'Mai\\PerformanceImages\\MaiEngine' => $baseDir . '/classes/class-mai-engine.php',
     'Mai\\PerformanceImages\\Scheduler' => $baseDir . '/classes/class-scheduler.php',
-    'WP_Async_Request' => $vendorDir . '/deliciousbrains/wp-background-processing/classes/wp-async-request.php',
-    'WP_Background_Process' => $vendorDir . '/deliciousbrains/wp-background-processing/classes/wp-background-process.php',
+    'Normalizer' => $vendorDir . '/symfony/polyfill-intl-normalizer/Resources/stubs/Normalizer.php',
+    'PhpToken' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/PhpToken.php',
+    'ReturnTypeWillChange' => $vendorDir . '/symfony/polyfill-php81/Resources/stubs/ReturnTypeWillChange.php',
+    'Stringable' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
+    'UnhandledMatchError' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/UnhandledMatchError.php',
+    'ValueError' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/ValueError.php',
+    '©' => $vendorDir . '/symfony/cache/Traits/ValueWrapper.php',
 );

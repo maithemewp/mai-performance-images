@@ -14,12 +14,37 @@
         "intervention/image": "^3.0",
         "deliciousbrains/wp-background-processing": "^1.4"
     },
+    "require-dev": {
+        "brianhenryie/strauss": "^0.22.1"
+    },
     "autoload": {
         "psr-4": {
-            "Mai\\PerformanceImages\\": "classes/"
+            "Mai\\PerformanceImages\\": "classes/",
+            "Mai\\PerformanceImages\\Dependencies\\": "classes/Dependencies/"
         },
         "classmap": [
             "classes/"
+        ],
+        "exclude-from-classmap": [
+            "vendor/deliciousbrains/wp-background-processing/"
+        ]
+    },
+    "extra": {
+        "strauss": {
+            "target_directory": "classes/Dependencies",
+            "namespace_prefix": "Mai\\PerformanceImages\\Dependencies\\",
+            "classmap_prefix": "MaiPerformanceImages_",
+            "packages": [
+                "deliciousbrains/wp-background-processing"
+            ]
+        }
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "vendor/bin/strauss"
+        ],
+        "post-update-cmd": [
+            "vendor/bin/strauss"
         ]
     }
 }
