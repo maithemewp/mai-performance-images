@@ -192,6 +192,18 @@ define( 'WP_DEBUG', true );
 define( 'WP_DEBUG_LOG', true );
 ```
 
+### Basic Auth Configuration
+
+If your site is protected by Basic Auth (e.g., on a staging environment), you'll need to configure the plugin to work with your existing Basic Auth credentials. Add these constants to your `wp-config.php`:
+
+```php
+// Basic Auth credentials for background processing
+define( 'MAI_PERFORMANCE_IMAGES_BASIC_AUTH_USERNAME', 'your_existing_username' );
+define( 'MAI_PERFORMANCE_IMAGES_BASIC_AUTH_PASSWORD', 'your_existing_password' );
+```
+
+These credentials should match your site's existing Basic Auth configuration. The plugin will use these credentials to authenticate background processing requests.
+
 ## License
 
 GPL-2.0-or-later
