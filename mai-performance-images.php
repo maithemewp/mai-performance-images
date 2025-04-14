@@ -73,17 +73,18 @@ function http_request_args( $r, $url ) {
 	}
 
 	// Parse the URL to get query parameters.
-	$query = parse_url( $url, PHP_URL_QUERY );
+	$query = wp_parse_url( $url, PHP_URL_QUERY );
+
+	// Bail if no query.
 	if ( ! $query ) {
 		return $r;
 	}
 
 	// Parse the query string.
-	$query_params = [];
-	parse_str( $query, $query_params );
+	wp_parse_str( $query, $result );
 
 	// Bail if not our action.
-	if ( ! isset( $query_params['action'] ) || 'mai_performance_images_processor' !== $query_params['action'] ) {
+	if ( ! isset( $result['action'] ) || 'mai_performance_images_processor' !== $result['action'] ) {
 		return $r;
 	}
 

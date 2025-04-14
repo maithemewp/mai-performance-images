@@ -25,9 +25,9 @@ class BackgroundProcess extends \WP_Background_Process {
 	 *
 	 * @since 0.1.0
 	 *
-	 * @var ImageProcessor|null
+	 * @var ImageProcessor
 	 */
-	private $processor = null;
+	private $processor;
 
 	/**
 	 * @var string
@@ -44,18 +44,17 @@ class BackgroundProcess extends \WP_Background_Process {
 	protected $action = 'processor';
 
 	/**
-	 * Constructor.
+	 * Get the logger instance.
 	 *
 	 * @since 0.1.0
 	 *
-	 * @return void
+	 * @return Logger
 	 */
-	public function __construct() {
-		/** @disregard P1009 */
-		parent::__construct();
-
-		// Initialize logger.
-		$this->logger = Logger::get_instance();
+	protected function get_logger(): Logger {
+		if ( null === $this->logger ) {
+			$this->logger = Logger::get_instance();
+		}
+		return $this->logger;
 	}
 
 	/**
@@ -92,7 +91,7 @@ class BackgroundProcess extends \WP_Background_Process {
 
 		// Validate required arguments.
 		if ( ! $args['original_path'] || ! $args['cache_path'] || ! $args['width'] ) {
-			$this->logger->error( sprintf(
+			$this->get_logger()->error( sprintf(
 				'Missing required arguments - original_path: %s, cache_path: %s, width: %s',
 				$args['original_path'] ? 'set' : 'missing',
 				$args['cache_path'] ? 'set' : 'missing',
@@ -115,7 +114,7 @@ class BackgroundProcess extends \WP_Background_Process {
 				}
 
 				// If cache is older than original, we should reprocess.
-				$this->logger->info( sprintf(
+				$this->get_logger()->info( sprintf(
 					'Reprocessing image as original is newer - cache: %s, original: %s',
 					$args['cache_path'],
 					$args['original_path']
@@ -132,7 +131,7 @@ class BackgroundProcess extends \WP_Background_Process {
 
 			// If processing failed, return false to retry.
 			if ( ! $result['success'] ) {
-				$this->logger->error( 'Image processing failed', [
+				$this->get_logger()->error( 'Image processing failed', [
 					'error' => $result['error'] ?? 'Unknown error',
 					'path'  => $args['original_path']
 				] );
@@ -142,7 +141,7 @@ class BackgroundProcess extends \WP_Background_Process {
 			// Return false to indicate task is complete and shouldn't be requeued.
 			return false;
 		} catch ( \Exception $e ) {
-			$this->logger->error( 'Image processing failed', [
+			$this->get_logger()->error( 'Image processing failed', [
 				'error' => $e->getMessage(),
 				'path'  => $args['original_path']
 			] );
@@ -159,7 +158,7 @@ class BackgroundProcess extends \WP_Background_Process {
 	 * @return void
 	 */
 	protected function complete() {
-		/** @disregard P1009 */
+		/** @disregard P1013 */
 		parent::complete();
 		$this->logger->info( 'Image queue processing completed' );
 	}

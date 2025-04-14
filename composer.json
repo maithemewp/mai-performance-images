@@ -19,7 +19,8 @@
             "Mai\\PerformanceImages\\": "classes/"
         },
         "classmap": [
-            "classes/"
+            "classes/",
+            "vendor/deliciousbrains/wp-background-processing/classes/"
         ]
     }
 }
