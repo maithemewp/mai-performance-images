@@ -16,7 +16,7 @@ abstract class AbstractImages {
 	 *
 	 * @since 0.1.0
 	 *
-	 * @var ImageQueue|null
+	 * @var BackgroundProcess|null
 	 */
 	protected $queue = null;
 
@@ -121,7 +121,7 @@ abstract class AbstractImages {
 	 * @return void
 	 */
 	public function set_queue(): void {
-		$this->queue = new ImageQueue();
+		$this->queue = new BackgroundProcess();
 	}
 
 	/**

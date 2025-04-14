@@ -12,7 +12,7 @@ return array(
     'Mai\\PerformanceImages\\ImageCacheManager' => $baseDir . '/classes/class-image-cache-manager.php',
     'Mai\\PerformanceImages\\ImageLoading' => $baseDir . '/classes/class-image-loading.php',
     'Mai\\PerformanceImages\\ImageProcessor' => $baseDir . '/classes/class-image-processor.php',
-    'Mai\\PerformanceImages\\ImageQueue' => $baseDir . '/classes/class-image-queue.php',
+    'Mai\\PerformanceImages\\BackgroundProcess' => $baseDir . '/classes/class-image-queue.php',
     'Mai\\PerformanceImages\\Images' => $baseDir . '/classes/class-images.php',
     'Mai\\PerformanceImages\\Logger' => $baseDir . '/classes/class-logger.php',
     'Mai\\PerformanceImages\\MaiEngine' => $baseDir . '/classes/class-mai-engine.php',

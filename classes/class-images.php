@@ -82,8 +82,14 @@ class Images extends AbstractImages {
 				];
 		}
 
-		// Add image ID.
-		$args['image_id'] = $block['attrs']['id'] ?? null;
+		// If featured image, get image ID.
+		if ( 'core/post-featured-image' === $block['blockName'] ) {
+			$args['image_id'] = get_post_thumbnail_id();
+		}
+		// Standard block.
+		else {
+			$args['image_id'] = $block['attrs']['id'] ?? null;
+		}
 
 		// Process the image.
 		return $this->handle_image( $block_content, $args );

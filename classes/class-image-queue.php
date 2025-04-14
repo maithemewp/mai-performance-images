@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  *
  * @since 0.1.0
  */
-class ImageQueue extends \WP_Background_Process {
+class BackgroundProcess extends \WP_Background_Process {
 	/**
 	 * The logger instance.
 	 *

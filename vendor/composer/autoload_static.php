@@ -7,11 +7,11 @@ namespace Composer\Autoload;
 class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
 {
     public static $prefixLengthsPsr4 = array (
-        'M' => 
+        'M' =>
         array (
             'Mai\\PerformanceImages\\' => 22,
         ),
-        'I' => 
+        'I' =>
         array (
             'Intervention\\Image\\' => 19,
             'Intervention\\Gif\\' => 17,
@@ -19,15 +19,15 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
     );
 
     public static $prefixDirsPsr4 = array (
-        'Mai\\PerformanceImages\\' => 
+        'Mai\\PerformanceImages\\' =>
         array (
             0 => __DIR__ . '/../..' . '/classes',
         ),
-        'Intervention\\Image\\' => 
+        'Intervention\\Image\\' =>
         array (
             0 => __DIR__ . '/..' . '/intervention/image/src',
         ),
-        'Intervention\\Gif\\' => 
+        'Intervention\\Gif\\' =>
         array (
             0 => __DIR__ . '/..' . '/intervention/gif/src',
         ),
@@ -40,7 +40,7 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
         'Mai\\PerformanceImages\\ImageCacheManager' => __DIR__ . '/../..' . '/classes/class-image-cache-manager.php',
         'Mai\\PerformanceImages\\ImageLoading' => __DIR__ . '/../..' . '/classes/class-image-loading.php',
         'Mai\\PerformanceImages\\ImageProcessor' => __DIR__ . '/../..' . '/classes/class-image-processor.php',
-        'Mai\\PerformanceImages\\ImageQueue' => __DIR__ . '/../..' . '/classes/class-image-queue.php',
+        'Mai\\PerformanceImages\\BackgroundProcess' => __DIR__ . '/../..' . '/classes/class-image-queue.php',
         'Mai\\PerformanceImages\\Images' => __DIR__ . '/../..' . '/classes/class-images.php',
         'Mai\\PerformanceImages\\Logger' => __DIR__ . '/../..' . '/classes/class-logger.php',
         'Mai\\PerformanceImages\\MaiEngine' => __DIR__ . '/../..' . '/classes/class-mai-engine.php',

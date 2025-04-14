@@ -25,7 +25,7 @@ final class CLI {
 	 *
 	 * @since 0.1.0
 	 *
-	 * @var ImageQueue|null
+	 * @var BackgroundProcess|null
 	 */
 	private $queue = null;
 
@@ -49,11 +49,11 @@ final class CLI {
 	 *
 	 * @since 0.1.0
 	 *
-	 * @return ImageQueue
+	 * @return BackgroundProcess
 	 */
 	private function get_queue() {
 		if ( null === $this->queue ) {
-			$this->queue = new ImageQueue();
+			$this->queue = new BackgroundProcess();
 		}
 
 		return $this->queue;
