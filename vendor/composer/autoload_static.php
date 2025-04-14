@@ -36,12 +36,17 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'Mai\\PerformanceImages\\AbstractImages' => __DIR__ . '/../..' . '/classes/class-abstract-images.php',
+        'Mai\\PerformanceImages\\CLI' => __DIR__ . '/../..' . '/classes/class-cli.php',
+        'Mai\\PerformanceImages\\ImageCacheManager' => __DIR__ . '/../..' . '/classes/class-image-cache-manager.php',
         'Mai\\PerformanceImages\\ImageLoading' => __DIR__ . '/../..' . '/classes/class-image-loading.php',
         'Mai\\PerformanceImages\\ImageProcessor' => __DIR__ . '/../..' . '/classes/class-image-processor.php',
-        'Mai\\PerformanceImages\\ImageRouter' => __DIR__ . '/../..' . '/classes/class-image-router.php',
+        'Mai\\PerformanceImages\\ImageQueue' => __DIR__ . '/../..' . '/classes/class-image-queue.php',
         'Mai\\PerformanceImages\\Images' => __DIR__ . '/../..' . '/classes/class-images.php',
         'Mai\\PerformanceImages\\Logger' => __DIR__ . '/../..' . '/classes/class-logger.php',
         'Mai\\PerformanceImages\\MaiEngine' => __DIR__ . '/../..' . '/classes/class-mai-engine.php',
+        'Mai\\PerformanceImages\\Scheduler' => __DIR__ . '/../..' . '/classes/class-scheduler.php',
+        'WP_Async_Request' => __DIR__ . '/..' . '/deliciousbrains/wp-background-processing/classes/wp-async-request.php',
+        'WP_Background_Process' => __DIR__ . '/..' . '/deliciousbrains/wp-background-processing/classes/wp-background-process.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

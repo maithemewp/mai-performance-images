@@ -1,4 +1,19 @@
 {
+    "name": "maitheme/mai-performance-images",
+    "description": "Optimizes image delivery through automatic resizing and WebP conversion with static file caching.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "JiveDig",
+            "email": "support@maitheme.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.0",
+        "intervention/image": "^3.0",
+        "deliciousbrains/wp-background-processing": "^1.4"
+    },
     "autoload": {
         "psr-4": {
             "Mai\\PerformanceImages\\": "classes/"
@@ -6,8 +21,5 @@
         "classmap": [
             "classes/"
         ]
-    },
-    "require": {
-        "intervention/image": "^3.11"
     }
 }

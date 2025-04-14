@@ -12,6 +12,15 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  */
 abstract class AbstractImages {
 	/**
+	 * The queue instance.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @var ImageQueue|null
+	 */
+	protected $queue = null;
+
+	/**
 	 * The logger instance.
 	 *
 	 * @since 0.1.0
@@ -57,6 +66,15 @@ abstract class AbstractImages {
 	protected $wide_size;
 
 	/**
+	 * Static array to store queue items.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @var array
+	 */
+	protected static $queue_items = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 0.1.0
@@ -67,6 +85,9 @@ abstract class AbstractImages {
 		$this->logger = Logger::get_instance();
 		$this->hooks();
 		$this->core_hooks();
+
+		// Add shutdown hook to process queue.
+		add_action( 'shutdown', [ $this, 'process_queue' ] );
 	}
 
 	/**
@@ -87,10 +108,21 @@ abstract class AbstractImages {
 	 * @return void
 	 */
 	protected function core_hooks(): void {
+		add_action( 'init',               [ $this, 'set_queue' ] );
 		add_filter( 'wp_content_img_tag', [ $this, 'filter_content_img_tag' ], 999, 3 );
 		add_filter( 'get_custom_logo',    [ $this, 'filter_custom_logo' ], 999, 2 );
 	}
 
+	/**
+	 * Set the queue.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @return void
+	 */
+	public function set_queue(): void {
+		$this->queue = new ImageQueue();
+	}
 
 	/**
 	 * Filters an img tag within the content for a given context.
@@ -431,7 +463,37 @@ abstract class AbstractImages {
 	}
 
 	/**
-	 * Check if a cached WebP file exists and queue it for processing if it doesn't.
+	 * Set properties.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @return void
+	 */
+	protected function set_properties(): void {
+		// If sizes are not set.
+		if ( ! isset( $this->content_size, $this->wide_size ) ) {
+			// Get theme.json layout sizes.
+			$settings           = wp_get_global_settings();
+			$this->content_size = isset( $settings['layout']['contentSize'] ) ? (int) str_replace( 'px', '', $settings['layout']['contentSize'] ) : 800;
+			$this->wide_size    = isset( $settings['layout']['wideSize'] ) ? (int) str_replace( 'px', '', $settings['layout']['wideSize'] ) : 1200;
+		}
+
+		// If breakpoints are not set.
+		if ( ! isset( $this->tablet_breakpoint, $this->desktop_breakpoint ) ) {
+			// Set the breakpoints.
+			$this->tablet_breakpoint  = 782; // WP's min-width where columns are no longer stacked.
+			$this->desktop_breakpoint = 960; // I just picked this one.
+		}
+
+		// Typecast to int.
+		$this->content_size       = (int) $this->content_size;
+		$this->wide_size          = (int) $this->wide_size;
+		$this->tablet_breakpoint  = (int) $this->tablet_breakpoint;
+		$this->desktop_breakpoint = (int) $this->desktop_breakpoint;
+	}
+
+	/**
+	 * Check if a cached file exists and queue it for processing if needed.
 	 *
 	 * @since 0.1.0
 	 *
@@ -461,36 +523,29 @@ abstract class AbstractImages {
 
 		// Check if cached file exists and is not empty.
 		if ( file_exists( $cache_path ) && filesize( $cache_path ) > 0 ) {
-			// Return the URL to the cached file.
-			return [
-				'success' => true,
-				'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $cache_path ),
-			];
+			// Get file modification time.
+			$cache_time    = filemtime( $cache_path );
+			$original_time = filemtime( $full_path );
+
+			// If cache is newer than original, we're good.
+			if ( $cache_time > $original_time ) {
+				return [
+					'success' => true,
+					'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $cache_path ),
+				];
+			}
 		}
 
-		// Get current queue count.
-		$queue_count = (int) get_transient( 'mai_image_queue_count' );
-		$max_queue   = apply_filters( 'mai_performance_images_max_queue', 100 );
+		// Add to static queue items array.
+		$queue_item = [
+			'original_path' => $full_path,
+			'cache_path'    => $cache_path,
+			'width'         => $width,
+			'height'        => $height,
+		];
 
-		// Only queue if we're under the limit.
-		if ( $queue_count < $max_queue ) {
-			// Queue the image for processing.
-			wp_schedule_single_event(
-				time() + 1, // Process in 1 second.
-				'mai_process_image',
-				[
-					[
-						'original_path' => $full_path,
-						'cache_path'    => $cache_path,
-						'width'         => $width,
-						'height'        => $height,
-					]
-				]
-			);
-
-			// Increment queue count.
-			set_transient( 'mai_image_queue_count', $queue_count + 1, HOUR_IN_SECONDS );
-		}
+		// Add to static queue items array.
+		self::$queue_items[] = $queue_item;
 
 		// Return the original image URL for now.
 		return [
@@ -500,32 +555,72 @@ abstract class AbstractImages {
 	}
 
 	/**
-	 * Set properties.
+	 * Process the queue at shutdown.
 	 *
 	 * @since 0.1.0
 	 *
 	 * @return void
 	 */
-	protected function set_properties(): void {
-		// If sizes are not set.
-		if ( ! isset( $this->content_size, $this->wide_size ) ) {
-			// Get theme.json layout sizes.
-			$settings           = wp_get_global_settings();
-			$this->content_size = isset( $settings['layout']['contentSize'] ) ? (int) str_replace( 'px', '', $settings['layout']['contentSize'] ) : 800;
-			$this->wide_size    = isset( $settings['layout']['wideSize'] ) ? (int) str_replace( 'px', '', $settings['layout']['wideSize'] ) : 1200;
+	public function process_queue(): void {
+		// If no items to process, bail.
+		if ( empty( self::$queue_items ) ) {
+			return;
 		}
 
-		// If breakpoints are not set.
-		if ( ! isset( $this->tablet_breakpoint, $this->desktop_breakpoint ) ) {
-			// Set the breakpoints.
-			$this->tablet_breakpoint  = 782; // WP's min-width where columns are no longer stacked.
-			$this->desktop_breakpoint = 960; // I just picked this one.
+		$has_items = false;
+
+		// Get all batches once.
+		$batches = $this->queue->get_batches();
+
+		// Process each item.
+		foreach ( self::$queue_items as $item ) {
+			// Check if item is already in queue.
+			if ( ! $this->is_item_in_queue( $item, $batches ) ) {
+				$this->queue->push_to_queue( $item );
+				$has_items = true;
+			}
 		}
 
-		// Typecast to int.
-		$this->content_size       = (int) $this->content_size;
-		$this->wide_size          = (int) $this->wide_size;
-		$this->tablet_breakpoint  = (int) $this->tablet_breakpoint;
-		$this->desktop_breakpoint = (int) $this->desktop_breakpoint;
+		// If we added any items, save and dispatch the queue.
+		if ( $has_items ) {
+			$this->queue->save()->dispatch();
+			$this->logger->info( 'New items added to queue and dispatched' );
+		}
+
+		// Clear the static array.
+		self::$queue_items = [];
+	}
+
+	/**
+	 * Check if an item is already in the queue.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param array $item    The item to check.
+	 * @param array $batches The queue batches.
+	 *
+	 * @return bool
+	 */
+	protected function is_item_in_queue( array $item, array $batches ): bool {
+		// If no batches, item is not in queue.
+		if ( empty( $batches ) ) {
+			return false;
+		}
+
+		// Check each batch for the item.
+		foreach ( $batches as $batch ) {
+			foreach ( $batch->data as $queued_item ) {
+				if (
+					$queued_item['original_path'] === $item['original_path'] &&
+					$queued_item['cache_path'] === $item['cache_path'] &&
+					$queued_item['width'] === $item['width'] &&
+					$queued_item['height'] === $item['height']
+				) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 }

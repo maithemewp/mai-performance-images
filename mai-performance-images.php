@@ -20,10 +20,25 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 require_once __DIR__ . '/vendor/autoload.php';
 
 // Initialize image handling with dependency injection.
+$images    = new Images();
 $loading   = new ImageLoading();
 $processor = new ImageProcessor();
-$images    = new Images();
+$scheduler = new Scheduler();
 
+add_action( 'cli_init', __NAMESPACE__ . '\register_cli_command' );
+/**
+ * Register the CLI command.
+ *
+ * @since 0.1.0
+ *
+ * @return void
+ */
+function register_cli_command() {
+	/** @disregard P1009 */
+	\WP_CLI::add_command( 'mai-performance-images', 'Mai\PerformanceImages\CLI' );
+}
+
+add_action( 'after_setup_theme', __NAMESPACE__ . '\add_mai_engine_support' );
 /**
  * Add support for Mai Theme v2.
  *
@@ -31,13 +46,23 @@ $images    = new Images();
  *
  * @return void
  */
-add_action( 'after_setup_theme', function() {
+function add_mai_engine_support() {
 	if ( ! ( class_exists( '\Mai_Engine' ) ) ) {
 		return;
 	}
 
 	// Initialize Mai Engine Images.
-	if ( class_exists( '\Mai\PerformanceImages\MaiEngine' ) ) {
-		new MaiEngine();
-	}
+	new MaiEngine();
+}
+
+/**
+ * Clear scheduled events on plugin deactivation.
+ *
+ * @since 0.1.0
+ *
+ * @return void
+ */
+register_deactivation_hook( __FILE__, function() {
+	$scheduler = new Scheduler();
+	$scheduler->clear_scheduled_events();
 } );

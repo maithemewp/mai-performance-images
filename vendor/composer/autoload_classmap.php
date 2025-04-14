@@ -8,10 +8,15 @@ $baseDir = dirname($vendorDir);
 return array(
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
     'Mai\\PerformanceImages\\AbstractImages' => $baseDir . '/classes/class-abstract-images.php',
+    'Mai\\PerformanceImages\\CLI' => $baseDir . '/classes/class-cli.php',
+    'Mai\\PerformanceImages\\ImageCacheManager' => $baseDir . '/classes/class-image-cache-manager.php',
     'Mai\\PerformanceImages\\ImageLoading' => $baseDir . '/classes/class-image-loading.php',
     'Mai\\PerformanceImages\\ImageProcessor' => $baseDir . '/classes/class-image-processor.php',
-    'Mai\\PerformanceImages\\ImageRouter' => $baseDir . '/classes/class-image-router.php',
+    'Mai\\PerformanceImages\\ImageQueue' => $baseDir . '/classes/class-image-queue.php',
     'Mai\\PerformanceImages\\Images' => $baseDir . '/classes/class-images.php',
     'Mai\\PerformanceImages\\Logger' => $baseDir . '/classes/class-logger.php',
     'Mai\\PerformanceImages\\MaiEngine' => $baseDir . '/classes/class-mai-engine.php',
+    'Mai\\PerformanceImages\\Scheduler' => $baseDir . '/classes/class-scheduler.php',
+    'WP_Async_Request' => $vendorDir . '/deliciousbrains/wp-background-processing/classes/wp-async-request.php',
+    'WP_Background_Process' => $vendorDir . '/deliciousbrains/wp-background-processing/classes/wp-background-process.php',
 );
