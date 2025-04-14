@@ -150,16 +150,6 @@ final class ImageProcessor {
 			$processed_size    = filesize( $cache_path );
 			$compression_ratio = $original_size ? round( ( $original_size - $processed_size ) / $original_size * 100, 2 ) : 0;
 
-			// Log performance metrics.
-			$this->logger->success( sprintf(
-				'Image processed in %s seconds, using %s memory. Original: %s, Processed: %s, Compression: %s%%',
-				round( $processing_time, 4 ),
-				size_format( $memory_used ),
-				size_format( $original_size ),
-				size_format( $processed_size ),
-				$compression_ratio
-			) );
-
 			// Verify.
 			if ( ! file_exists( $cache_path ) || filesize( $cache_path ) === 0 ) {
 				throw new \Exception( 'Failed to save processed image or file is empty' );

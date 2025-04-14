@@ -55,6 +55,43 @@ function add_mai_engine_support() {
 	new MaiEngine();
 }
 
+add_filter( 'http_request_args', __NAMESPACE__ . '\http_request_args', 10, 2 );
+/**
+ * Add authorization header to HTTP requests.
+ *
+ * @since 0.1.0
+ *
+ * @param array  $r   HTTP request arguments.
+ * @param string $url HTTP request URL.
+ *
+ * @return array Modified HTTP request arguments.
+ */
+function http_request_args( $r, $url ) {
+	// Parse the URL to get query parameters.
+	$query_params = [];
+	parse_str( parse_url( $url, PHP_URL_QUERY ), $query_params );
+
+	// Bail if not our action.
+	if ( ! isset( $query_params['action'] ) || 'mai_performance_images_processor' !== $query_params['action'] ) {
+		return $r;
+	}
+
+	/** @disregard P1011 */
+	$un = defined( 'MAI_PERFORMANCE_IMAGES_BASIC_AUTH_USERNAME' ) ? MAI_PERFORMANCE_IMAGES_BASIC_AUTH_USERNAME : 'jive';
+	/** @disregard P1011 */
+	$pw = defined( 'MAI_PERFORMANCE_IMAGES_BASIC_AUTH_PASSWORD' ) ? MAI_PERFORMANCE_IMAGES_BASIC_AUTH_PASSWORD : 'jive';
+
+	// Bail if no username or password.
+	if ( ! ( $un && $pw ) ) {
+		return $r;
+	}
+
+	// Add the authorization header.
+	$r['headers']['Authorization'] = 'Basic ' . base64_encode( $un . ':' . $pw );
+
+	return $r;
+}
+
 /**
  * Clear scheduled events on plugin deactivation.
  *
