@@ -139,7 +139,8 @@ class BackgroundProcess extends \WP_Background_Process {
 				return false;
 			}
 
-			return $result;
+			// Return false to indicate task is complete and shouldn't be requeued.
+			return false;
 		} catch ( \Exception $e ) {
 			$this->logger->error( 'Image processing failed', [
 				'error' => $e->getMessage(),

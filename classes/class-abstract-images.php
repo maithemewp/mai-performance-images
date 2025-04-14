@@ -336,6 +336,9 @@ abstract class AbstractImages {
 				}
 			}
 
+			// Get the full path to the original image.
+			$original_path = $uploads['basedir'] . '/' . $path;
+
 			// Set base widths and start srcset.
 			$base_widths = [ 400, 800, 1200, 1600, 2400 ];
 			$srcset      = [];
@@ -369,7 +372,7 @@ abstract class AbstractImages {
 				}
 
 				// Check for cached file and queue for processing if needed.
-				$result = $this->check_cached_file( $path, $path_parts['filename'], $w, $height );
+				$result = $this->check_cached_file( $original_path, $path_parts['filename'], $w, $height );
 
 				// If not successful, mark as not all available.
 				if ( ! $result['success'] ) {
@@ -427,7 +430,7 @@ abstract class AbstractImages {
 			}
 
 			// Check for cached file and queue for processing if needed.
-			$src_result = $this->check_cached_file( $path, $path_parts['filename'], $args['src_width'], $src_height );
+			$src_result = $this->check_cached_file( $original_path, $path_parts['filename'], $args['src_width'], $src_height );
 
 			// If src is not successful, mark as not all available.
 			if ( ! $src_result['success'] ) {
@@ -513,19 +516,29 @@ abstract class AbstractImages {
 		// Get uploads directory info.
 		$uploads = wp_get_upload_dir();
 
-		// Generate cache path in the mai-performance-images directory.
-		$dir_name   = basename( dirname( $original_path ) );
-		$cache_dir  = rtrim( $uploads['basedir'] . '/mai-performance-images/' . ( '.' === $dir_name ? '' : $dir_name ), '/' );
-		$cache_path = $cache_dir . '/' . $filename . '-' . $width . 'x' . ( $height ?? 'auto' ) . '.webp';
+		// Get the relative path from uploads directory.
+		$relative_path = str_replace( $uploads['basedir'] . '/', '', $original_path );
+		$dir_name      = dirname( $relative_path );
 
-		// Get full path to original image.
-		$full_path = $uploads['basedir'] . '/' . $original_path;
+		// Generate cache path in the mai-performance-images directory, preserving the original directory structure.
+		$cache_dir  = $uploads['basedir'] . '/mai-performance-images' . ( '.' === $dir_name ? '' : '/' . $dir_name );
+		$cache_path = $cache_dir . '/' . $filename . '-' . $width . 'x' . ( $height ?? 'auto' ) . '.webp';
 
 		// Check if cached file exists and is not empty.
 		if ( file_exists( $cache_path ) && filesize( $cache_path ) > 0 ) {
 			// Get file modification time.
-			$cache_time    = filemtime( $cache_path );
-			$original_time = filemtime( $full_path );
+			$cache_time = filemtime( $cache_path );
+
+			// Check if original file exists before getting its modification time.
+			if ( ! file_exists( $original_path ) ) {
+				// If original file doesn't exist, return the cached version.
+				return [
+					'success' => true,
+					'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $cache_path ),
+				];
+			}
+
+			$original_time = filemtime( $original_path );
 
 			// If cache is newer than original, we're good.
 			if ( $cache_time > $original_time ) {
@@ -536,9 +549,18 @@ abstract class AbstractImages {
 			}
 		}
 
+		// Check if original file exists before adding to queue.
+		if ( ! file_exists( $original_path ) ) {
+			// If original file doesn't exist, return the original URL.
+			return [
+				'success' => false,
+				'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $original_path ),
+			];
+		}
+
 		// Add to static queue items array.
 		$queue_item = [
-			'original_path' => $full_path,
+			'original_path' => $original_path,
 			'cache_path'    => $cache_path,
 			'width'         => $width,
 			'height'        => $height,
@@ -550,7 +572,7 @@ abstract class AbstractImages {
 		// Return the original image URL for now.
 		return [
 			'success' => false,
-			'url'     => $uploads['baseurl'] . '/' . $original_path,
+			'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $original_path ),
 		];
 	}
 
