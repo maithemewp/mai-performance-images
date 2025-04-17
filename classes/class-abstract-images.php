@@ -314,6 +314,7 @@ abstract class AbstractImages {
 			// Get the original extension.
 			$path_parts = pathinfo( $path );
 			$extension  = $path_parts['extension'] ?? '';
+			$filename   = $path_parts['filename'] ?? '';
 
 			// Skip if no extension or it's an svg.
 			if ( ! $extension || 'svg' === $extension ) {
@@ -332,8 +333,10 @@ abstract class AbstractImages {
 			if ( $image_id ) {
 				$full_url = wp_get_attachment_image_url( $image_id, 'full' );
 				if ( $full_url ) {
+					$path_parts = pathinfo( wp_parse_url( $full_url, PHP_URL_PATH ) );
 					$path       = str_replace( wp_parse_url( $uploads['baseurl'], PHP_URL_PATH ) . '/', '', wp_parse_url( $full_url, PHP_URL_PATH ) );
 					$extension  = $path_parts['extension'] ?? 'jpg';
+					$filename   = $path_parts['filename'] ?? '';
 				}
 			}
 
@@ -373,7 +376,7 @@ abstract class AbstractImages {
 				}
 
 				// Check for cached file and queue for processing if needed.
-				$result = $this->check_cached_file( $original_path, $path_parts['filename'], $w, $height );
+				$result = $this->check_cached_file( $original_path, $filename, $w, $height );
 
 				// If not successful, mark as not all available.
 				if ( ! $result['success'] ) {
@@ -431,7 +434,7 @@ abstract class AbstractImages {
 			}
 
 			// Check for cached file and queue for processing if needed.
-			$src_result = $this->check_cached_file( $original_path, $path_parts['filename'], $args['src_width'], $src_height );
+			$src_result = $this->check_cached_file( $original_path, $filename, $args['src_width'], $src_height );
 
 			// If src is not successful, mark as not all available.
 			if ( ! $src_result['success'] ) {
@@ -645,5 +648,59 @@ abstract class AbstractImages {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Get the image size by name.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $name The name of the image size.
+	 *
+	 * @return int|null
+	 */
+	public function get_image_size( string $name ): ?int {
+		/** @disregard P1010 */
+		$sizes = $this->get_available_image_sizes();
+		return $sizes[ $name ]['width'] ?? null;
+	}
+
+	/**
+	 * Get a combined list of default and custom registered image sizes.
+	 * Originally taken from CMB2. Static variable added here.
+	 *
+	 * @since  0.1.0
+	 *
+	 * @link   http://core.trac.wordpress.org/ticket/18947
+	 * @global array $_wp_additional_image_sizes All image sizes.
+	 *
+	 * @return array
+	 */
+	public function get_available_image_sizes(): array {
+		static $image_sizes = null;
+
+		if ( ! is_null( $image_sizes ) ) {
+			return $image_sizes;
+		}
+
+		$image_sizes = [];
+
+		// Get image sizes.
+		global $_wp_additional_image_sizes;
+		$default_image_sizes = [ 'thumbnail', 'medium', 'large' ];
+
+		foreach ( $default_image_sizes as $size ) {
+			$image_sizes[ $size ] = [
+				'height' => intval( get_option( "{$size}_size_h" ) ),
+				'width'  => intval( get_option( "{$size}_size_w" ) ),
+				'crop'   => get_option( "{$size}_crop" ) ? get_option( "{$size}_crop" ) : false,
+			];
+		}
+
+		if ( isset( $_wp_additional_image_sizes ) && count( $_wp_additional_image_sizes ) ) {
+			$image_sizes = array_merge( $image_sizes, $_wp_additional_image_sizes );
+		}
+
+		return $image_sizes;
 	}
 }
