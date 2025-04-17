@@ -90,7 +90,7 @@ final class ImageLoading {
 		}
 
 		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
+		while ( $tags->next_tag( $args ) ) {
 			// Add loading attribute.
 			$tags->set_attribute( 'data-mai-loading', $loading );
 		}
