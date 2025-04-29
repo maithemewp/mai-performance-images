@@ -161,6 +161,6 @@ class BackgroundProcess extends \MaiPerformanceImages_WP_Background_Process {
 	protected function complete() {
 		/** @disregard P1013 */
 		parent::complete();
-		$this->logger->info( 'Image queue processing completed' );
+		$this->get_logger()->info( 'Image queue processing completed' );
 	}
 }
