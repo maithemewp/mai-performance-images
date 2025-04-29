@@ -272,6 +272,7 @@ class MaiEngine extends Images {
 
 					// Set loading to lazy.
 					$tags->set_attribute( 'loading', 'lazy' );
+					$tags->set_attribute( 'fetchpriority', 'low' );
 				}
 
 				// Get updated content.
@@ -575,6 +576,17 @@ class MaiEngine extends Images {
 		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
 			// Add loading attribute.
 			$tags->set_attribute( 'loading', $loading );
+
+			// If eager, set fetchpriority to high.
+			if ( 'eager' === $loading ) {
+				$tags->set_attribute( 'fetchpriority', 'high' );
+			}
+			// Otherwise set fetchpriority to low.
+			// We were sometimes seeing loading as lazy, but fetchpriority as high.
+			// This makes sure that doesn't happen.
+			else {
+				$tags->set_attribute( 'fetchpriority', 'low' );
+			}
 		}
 
 		// Get updated block content.
