@@ -67,7 +67,8 @@ final class ImageLoading {
 	 */
 	public function render_loading_attribute( $block_content, $block ) {
 		// Get the img loading attribute.
-		$loading = $block['attrs']['imgLoading'] ?? '';
+		$default = 'lazy';
+		$loading = $block['attrs']['imgLoading'] ?? $default;
 
 		// Bail if no loading attribute is set.
 		if ( ! $loading ) {
