@@ -554,7 +554,8 @@ class MaiEngine extends Images {
 		}
 
 		// Get loading and count.
-		$loading = $data['image_loading'] ?? null;
+		$default = 'lazy';
+		$loading = $data['image_loading'] ?? $default;
 		$count   = $data['image_loading_count'] ?? null;
 
 		// Bail if no loading.
