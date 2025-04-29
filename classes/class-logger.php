@@ -8,6 +8,8 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 /**
  * Mai Performance Logger class.
  *
+ * @version 0.1.0
+ *
  * @since 0.1.0
  */
 class Logger {
@@ -19,6 +21,15 @@ class Logger {
 	 * @var Logger
 	 */
 	private static $instance = null;
+
+	/**
+	 * The plugin name.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @var string
+	 */
+	private $plugin_name;
 
 	/**
 	 * Get the singleton instance.
@@ -61,7 +72,7 @@ class Logger {
 		}
 
 		// Format the message.
-		$formatted = sprintf( 'Mai Performance Images [%s]: %s', strtoupper( $type ), $message );
+		$formatted = sprintf( '%s [%s]: %s', $this->get_plugin_name(), strtoupper( $type ), $message );
 
 		// If logging.
 		if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
@@ -74,7 +85,7 @@ class Logger {
 			// If ray is available, use it for additional debugging.
 			if ( function_exists( '\ray' ) ) {
 				/** @disregard P1010 */
-				\ray( $formatted )->label( 'Mai Performance Images' );
+				\ray( $formatted )->label( $this->get_plugin_name() );
 			}
 		}
 	}
@@ -133,5 +144,24 @@ class Logger {
 	 */
 	public function info( string $message ): void {
 		$this->log( $message, 'info' );
+	}
+
+	/**
+	 * Get the plugin name.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $name The plugin name.
+	 *
+	 * @return string
+	 */
+	public function get_plugin_name(): string {
+		if ( $this->plugin_name ) {
+			return $this->plugin_name;
+		}
+
+		$this->plugin_name = plugin_basename( dirname( dirname( __FILE__ ) ) );
+
+		return $this->plugin_name;
 	}
 }
