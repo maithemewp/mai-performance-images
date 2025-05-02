@@ -88,7 +88,18 @@ class Images extends AbstractImages {
 		}
 		// Standard block.
 		else {
-			$args['image_id'] = $block['attrs']['id'] ?? null;
+			$args['image_id'] = absint( $block['attrs']['id'] ) ?? null;
+
+			// If image block, check for block bindings (pattern overrides).
+			if ( 'core/image' === $block['blockName'] ) {
+				// Get image ID from class.
+				$image_id = $this->get_image_id( $block_content );
+
+				// If image ID is found and it doesn't match the block's image ID, set it.
+				if ( $image_id && $image_id !== $args['image_id'] ) {
+					$args['image_id'] = $image_id;
+				}
+			}
 		}
 
 		// Process the image.
@@ -252,5 +263,49 @@ class Images extends AbstractImages {
 
 		// Process the image.
 		return $this->handle_image( $block_content, $args );
+	}
+
+	/**
+	 * Get the image ID from the class.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $html The HTML content.
+	 *
+	 * @return int
+	 */
+	private function get_image_id( string $html ): int {
+		// Set image ID.
+		$image_id = 0;
+
+		// Set up tag processor.
+		$tags = new \WP_HTML_Tag_Processor( $html );
+
+		// Loop through tags.
+		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
+			$class   = $tags->get_attribute( 'class' );
+			$classes = explode( ' ', $class );
+
+			// Get the class that starts with 'wp-image-'
+			$image_class = array_filter( $classes, function( $class ) {
+				return str_starts_with( $class, 'wp-image-' );
+			} );
+
+			// Bail if no image class.
+			if ( empty( $image_class ) ) {
+				continue;
+			}
+
+			// Get the image ID.
+			$image_id = str_replace( 'wp-image-', '', reset( $image_class ) );
+			$image_id = absint( $image_id );
+
+			// Bail.
+			break;
+
+		}
+
+		// Return the image ID.
+		return $image_id;
 	}
 }
