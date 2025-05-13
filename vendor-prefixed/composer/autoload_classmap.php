@@ -19,4 +19,5 @@ return array(
     'Mai\\PerformanceImages\\Logger' => $baseDir . '/classes/class-logger.php',
     'Mai\\PerformanceImages\\MaiEngine' => $baseDir . '/classes/class-mai-engine.php',
     'Mai\\PerformanceImages\\Scheduler' => $baseDir . '/classes/class-scheduler.php',
+    'Mai\\PerformanceImages\\Updater' => $baseDir . '/classes/class-updater.php',
 );

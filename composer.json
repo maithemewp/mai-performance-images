@@ -12,7 +12,8 @@
     "require": {
         "php": ">=8.0",
         "intervention/image": "^3.0",
-        "deliciousbrains/wp-background-processing": "^1.4"
+        "deliciousbrains/wp-background-processing": "^1.4",
+        "yahnis-elsts/plugin-update-checker": "^5.5"
     },
     "require-dev": {
         "brianhenryie/strauss": "^0.22.1"

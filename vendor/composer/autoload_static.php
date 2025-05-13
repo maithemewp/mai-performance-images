@@ -6,6 +6,10 @@ namespace Composer\Autoload;
 
 class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
 {
+    public static $files = array (
+        '256558b1ddf2fa4366ea7d7602798dd1' => __DIR__ . '/..' . '/yahnis-elsts/plugin-update-checker/load-v5p5.php',
+    );
+
     public static $prefixLengthsPsr4 = array (
         'M' => 
         array (
@@ -50,6 +54,7 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
         'Mai\\PerformanceImages\\Logger' => __DIR__ . '/../..' . '/classes/class-logger.php',
         'Mai\\PerformanceImages\\MaiEngine' => __DIR__ . '/../..' . '/classes/class-mai-engine.php',
         'Mai\\PerformanceImages\\Scheduler' => __DIR__ . '/../..' . '/classes/class-scheduler.php',
+        'Mai\\PerformanceImages\\Updater' => __DIR__ . '/../..' . '/classes/class-updater.php',
     );
 
     public static function getInitializer(ClassLoader $loader)
