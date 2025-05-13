@@ -7,6 +7,8 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
+    'MaiPerformanceImages_WP_Async_Request' => $vendorDir . '/deliciousbrains/wp-background-processing/classes/wp-async-request.php',
+    'MaiPerformanceImages_WP_Background_Process' => $vendorDir . '/deliciousbrains/wp-background-processing/classes/wp-background-process.php',
     'Mai\\PerformanceImages\\AbstractImages' => $baseDir . '/classes/class-abstract-images.php',
     'Mai\\PerformanceImages\\BackgroundProcess' => $baseDir . '/classes/class-background-process.php',
     'Mai\\PerformanceImages\\CLI' => $baseDir . '/classes/class-cli.php',

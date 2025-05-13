@@ -141,6 +141,7 @@ class BackgroundProcess extends \MaiPerformanceImages_WP_Background_Process {
 
 			// Return false to indicate task is complete and shouldn't be requeued.
 			return false;
+
 		} catch ( \Exception $e ) {
 			$this->get_logger()->error( 'Image processing failed', [
 				'error' => $e->getMessage(),

@@ -308,8 +308,10 @@ class MaiEngine extends Images {
 			return $content;
 		}
 
-		/** @disregard P1010 */
-		$ratio = isset( $data['image_orientation'] ) && $data['image_orientation'] ? \mai_get_aspect_ratio_from_orientation( $data['image_orientation'] ) : null;
+		// Get image aspect ratio.
+		$orientation = $data['image_orientation'] ?? null;
+		$image_size  = $data['image_size'] ?? null;
+		$ratio       = $this->get_image_aspect_ratio( $orientation, $image_size );
 
 		// Set args.
 		$args = [
@@ -350,12 +352,14 @@ class MaiEngine extends Images {
 		}
 
 		/** @disregard P1010 */
-		$columns  = array_reverse( \mai_get_breakpoint_columns( $data ) );
-		$position = $data['image_position'] ?? null;
-		$side     = $position && ( str_contains( $position, 'left' ) || str_contains( $position, 'right' ) ) ? 2 : 1;
+		$columns     = array_reverse( \mai_get_breakpoint_columns( $data ) );
+		$position    = $data['image_position'] ?? null;
+		$orientation = $data['image_orientation'] ?? null;
+		$image_size  = $data['image_size'] ?? null;
+		$side        = $position && ( str_contains( $position, 'left' ) || str_contains( $position, 'right' ) ) ? 2 : 1;
 
 		/** @disregard P1010 */
-		$ratio = isset( $data['image_orientation'] ) && $data['image_orientation'] ? \mai_get_aspect_ratio_from_orientation( $data['image_orientation'] ) : null;
+		$ratio = $this->get_image_aspect_ratio( $orientation, $image_size );
 
 		// Set args.
 		$args = [
@@ -404,9 +408,10 @@ class MaiEngine extends Images {
 			$max_width = min( $max_width, $image_width * 2 );
 		}
 
-		// Get ratio.
-		/** @disregard P1010 */
-		$ratio = $orientation ? \mai_get_aspect_ratio_from_orientation( $orientation ) : null;
+		// Get image aspect ratio.
+		$orientation = $data['image_orientation'] ?? null;
+		$image_size  = $data['image_size'] ?? null;
+		$ratio       = $this->get_image_aspect_ratio( $orientation, $image_size );
 
 		// Set args.
 		$args = [
@@ -422,6 +427,25 @@ class MaiEngine extends Images {
 
 		/** @disregard P1008 */
 		return $this->handle_image( $block_content, $args );
+	}
+
+	/**
+	 * Get image aspect ratio.
+	 *
+	 * @since 0.2.0
+	 *
+	 * @param string|null $orientation The image orientation.
+	 * @param string|null $image_size  The image size.
+	 *
+	 * @return string|false
+	 */
+	public function get_image_aspect_ratio( ?string $orientation, ?string $image_size ): string {
+		/** @disregard P1010 */
+		$ratio = $orientation ? \mai_get_aspect_ratio_from_orientation( $orientation ) : false;
+		/** @disregard P1010 */
+		$ratio = ! $ratio && $image_size ? \mai_get_image_aspect_ratio( $image_size ) : $ratio;
+
+		return $ratio;
 	}
 
 	/**

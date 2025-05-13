@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Mai Performance Images
  * Description:       Optimizes image delivery through automatic resizing and WebP conversion with static file caching.
- * Version:           0.1.1
+ * Version:           0.2.0
  * Requires at least: 6.7
  * Requires PHP:      8.0
  * Author:            JiveDig
@@ -84,14 +84,14 @@ function http_request_args( $r, $url ) {
 	wp_parse_str( $query, $result );
 
 	// Bail if not our action.
-	if ( ! isset( $result['action'] ) || 'mai_performance_images_processor' !== $result['action'] ) {
+	if ( ! isset( $result['action'] ) || ! str_starts_with( $result['action'], 'mai_performance_images_' ) ) {
 		return $r;
 	}
 
 	/** @disregard P1011 */
-	$un = defined( 'MAI_PERFORMANCE_IMAGES_BASIC_AUTH_USERNAME' ) ? MAI_PERFORMANCE_IMAGES_BASIC_AUTH_USERNAME : 'jive';
+	$un = defined( 'MAI_BASIC_AUTH_USERNAME' ) ? MAI_BASIC_AUTH_USERNAME : '';
 	/** @disregard P1011 */
-	$pw = defined( 'MAI_PERFORMANCE_IMAGES_BASIC_AUTH_PASSWORD' ) ? MAI_PERFORMANCE_IMAGES_BASIC_AUTH_PASSWORD : 'jive';
+	$pw = defined( 'MAI_BASIC_AUTH_PASSWORD' ) ? MAI_BASIC_AUTH_PASSWORD : '';
 
 	// Bail if no username or password.
 	if ( ! ( $un && $pw ) ) {

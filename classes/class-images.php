@@ -88,7 +88,7 @@ class Images extends AbstractImages {
 		}
 		// Standard block.
 		else {
-			$args['image_id'] = absint( $block['attrs']['id'] ) ?? null;
+			$args['image_id'] = isset( $block['attrs']['id'] ) ? absint( $block['attrs']['id'] ) : null;
 
 			// If image block, check for block bindings (pattern overrides).
 			if ( 'core/image' === $block['blockName'] ) {

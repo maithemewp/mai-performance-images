@@ -20,7 +20,7 @@
     "autoload": {
         "psr-4": {
             "Mai\\PerformanceImages\\": "classes/",
-            "Mai\\PerformanceImages\\Dependencies\\": "classes/Dependencies/"
+            "Mai\\PerformanceImages\\dependencies\\": "classes/dependencies/"
         },
         "classmap": [
             "classes/"
@@ -31,8 +31,8 @@
     },
     "extra": {
         "strauss": {
-            "target_directory": "classes/Dependencies",
-            "namespace_prefix": "Mai\\PerformanceImages\\Dependencies\\",
+            "target_directory": "vendor-prefixed",
+            "namespace_prefix": "Mai\\PerformanceImages\\dependencies\\",
             "classmap_prefix": "MaiPerformanceImages_",
             "packages": [
                 "deliciousbrains/wp-background-processing"
@@ -40,11 +40,29 @@
         }
     },
     "scripts": {
+        "download-strauss": [
+            "sh -c 'test -f ./bin/strauss.phar || curl -o bin/strauss.phar -L -C - https://github.com/BrianHenryIE/strauss/releases/latest/download/strauss.phar'"
+        ],
+        "prefix-namespaces": [
+            "@download-strauss",
+            "@php bin/strauss.phar",
+            "@composer dump-autoload"
+        ],
         "post-install-cmd": [
-            "vendor/bin/strauss"
+            "@download-strauss",
+            "@prefix-namespaces"
         ],
         "post-update-cmd": [
-            "vendor/bin/strauss"
+            "@download-strauss",
+            "@prefix-namespaces"
+        ],
+        "post-autoload-dump": [
+            "@download-strauss",
+            "@php bin/strauss.phar include-autoloader"
         ]
+    },
+    "scripts-no-dev": {
+        "post-install-cmd": [],
+        "post-update-cmd": []
     }
 }

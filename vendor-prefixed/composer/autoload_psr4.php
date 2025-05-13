@@ -8,6 +8,4 @@ $baseDir = dirname($vendorDir);
 return array(
     'Mai\\PerformanceImages\\dependencies\\' => array($baseDir . '/classes/dependencies'),
     'Mai\\PerformanceImages\\' => array($baseDir . '/classes'),
-    'Intervention\\Image\\' => array($vendorDir . '/intervention/image/src'),
-    'Intervention\\Gif\\' => array($vendorDir . '/intervention/gif/src'),
 );
