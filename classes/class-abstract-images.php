@@ -183,12 +183,14 @@ abstract class AbstractImages {
 				// If eager, set fetchpriority to high.
 				if ( 'eager' === $loading ) {
 					$tags->set_attribute( 'fetchpriority', 'high' );
+					$tags->set_attribute( 'decoding', 'sync' );
 				}
 				// Otherwise set fetchpriority to low.
 				// We were sometimes seeing loading as lazy, but fetchpriority as high.
 				// This makes sure that doesn't happen.
 				else {
 					$tags->set_attribute( 'fetchpriority', 'low' );
+					$tags->set_attribute( 'decoding', 'async' );
 				}
 			}
 

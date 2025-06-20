@@ -2,6 +2,8 @@
 
 namespace Mai\PerformanceImages;
 
+use WP_HTML_Tag_Processor;
+
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) exit;
 
@@ -43,12 +45,14 @@ class MaiEngine extends Images {
 		// Add hooks.
 		add_action( 'genesis_site_title',                      [ $this, 'before_logo' ], 0 );
 		add_filter( 'mai_page_header_img',                     [ $this, 'render_page_header_image' ], 999, 3 );
-		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'render_entry_image' ], 10, 3 );
-		add_filter( 'render_block_acf/mai-post-grid',          [ $this, 'render_mai_grid_block' ], 99, 2 );
-		add_filter( 'render_block_acf/mai-term-grid',          [ $this, 'render_mai_grid_block' ], 99, 2 );
-		add_action( 'acf/init',                                [ $this, 'register_grid_block_field_group' ] );
+		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'render_archive_single_image' ], 10, 3 );
+		add_filter( 'render_block_acf/mai-post-grid',          [ $this, 'render_block_entry_image' ], 99, 2 );
+		add_filter( 'render_block_acf/mai-term-grid',          [ $this, 'render_block_entry_image' ], 99, 2 );
+		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'add_grid_attributes' ], 10, 2 );
+		add_filter( 'mai_content_archive_settings',            [ $this, 'add_archive_settings' ], 10, 2 );
+		add_filter( 'mai_single_content_settings',             [ $this, 'add_single_settings' ], 10, 2 );
+		add_action( 'acf/init',                                [ $this, 'add_grid_block_field_group' ] );
 		add_filter( 'mai_grid_args',                           [ $this, 'add_grid_args' ] );
-		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'add_attributes' ], 10, 2 );
 		add_action( 'mai_after_entry',                         [ $this, 'increment_index' ], 10, 2 );
 	}
 
@@ -69,7 +73,7 @@ class MaiEngine extends Images {
 	}
 
 	/**
-	 * Adds image ID attribute to custom logo.
+	 * Filters the custom logo.
 	 *
 	 * @since 0.1.0
 	 *
@@ -82,7 +86,7 @@ class MaiEngine extends Images {
 		 * Set up tag processor.
 		 * @disregard P1008
 		 */
-		$tags  = new \WP_HTML_Tag_Processor( $html );
+		$tags  = new WP_HTML_Tag_Processor( $html );
 		$sizes = [];
 
 		// Loop through tags.
@@ -101,7 +105,7 @@ class MaiEngine extends Images {
 		 * Set up tag processor.
 		 * @disregard P1008
 		 */
-		$tags = new \WP_HTML_Tag_Processor( $html );
+		$tags = new WP_HTML_Tag_Processor( $html );
 
 		// Loop through tags.
 		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-scroll-logo' ] ) ) {
@@ -152,7 +156,7 @@ class MaiEngine extends Images {
 		 * Set up tag processor.
 		 * @disregard P1008
 		 */
-		$tags = new \WP_HTML_Tag_Processor( $image );
+		$tags = new WP_HTML_Tag_Processor( $image );
 
 		// Loop through tags.
 		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-scroll-logo' ] ) ) {
@@ -162,10 +166,11 @@ class MaiEngine extends Images {
 			// Check for loading attribute.
 			$loading = $tags->get_attribute( 'loading' );
 
-			// If loading is eager, set to lazy.
+			// If loading is not set, set to eager.
 			if ( ! $loading ) {
 				$tags->set_attribute( 'loading', 'eager' );
 				$tags->set_attribute( 'fetchpriority', 'high' );
+				$tags->set_attribute( 'decoding', 'sync' );
 			}
 		}
 
@@ -191,7 +196,7 @@ class MaiEngine extends Images {
 	}
 
 	/**
-	 * Add image ID attribute to entry image link.
+	 * Filters the archive and single entry image.
 	 *
 	 * @since 0.1.0
 	 *
@@ -199,9 +204,15 @@ class MaiEngine extends Images {
 	 *
 	 * @return array
 	 */
-	public function render_entry_image( string $content, array $args ): string {
+	public function render_archive_single_image( string $content, array $args ): string {
 		// Bail if not showing the image.
 		if ( ! ( isset( $args['params']['args']['show'] ) && in_array( 'image', (array) $args['params']['args']['show'] ) ) ) {
+			/** @disregard P1008 */
+			return $content;
+		}
+
+		// Bail if context is not single or archive.
+		if ( ! ( isset( $args['params']['args']['context'] ) && in_array( $args['params']['args']['context'], [ 'single', 'archive' ] ) ) ) {
 			/** @disregard P1008 */
 			return $content;
 		}
@@ -236,7 +247,7 @@ class MaiEngine extends Images {
 		 * Set up tag processor.
 		 * @disregard P1008
 		 */
-		$tags = new \WP_HTML_Tag_Processor( $content );
+		$tags = new WP_HTML_Tag_Processor( $content );
 
 		// Loop through tags.
 		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
@@ -252,31 +263,7 @@ class MaiEngine extends Images {
 				$content = $this->render_single_entry_image( $content, $args );
 				break;
 			case 'archive':
-				static $count = 0;
 				$content = $this->render_archive_entry_image( $content, $args );
-
-				/**
-				 * Set up tag processor.
-				 * @disregard P1008
-				 */
-				$tags = new \WP_HTML_Tag_Processor( $content );
-
-				// Loop through tags.
-				while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
-					$count++;
-
-					// Skip if 3 or under.
-					if ( $count <= 3 ) {
-						continue;
-					}
-
-					// Set loading to lazy.
-					$tags->set_attribute( 'loading', 'lazy' );
-					$tags->set_attribute( 'fetchpriority', 'low' );
-				}
-
-				// Get updated content.
-				$content = $tags->get_updated_html();
 				break;
 			default:
 				break;
@@ -284,48 +271,6 @@ class MaiEngine extends Images {
 
 		// Return the content with the final attributes.
 		return $this->handle_attributes( $content );
-	}
-
-	/**
-	 * Render the single entry image.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $content The content.
-	 * @param array  $args    The args.
-	 * @return string
-	 */
-	public function render_single_entry_image( string $content, array $args ): string {
-		/**
-		 * Get template args.
-		 * @disregard P1010
-		 */
-		$data = \mai_get_template_args();
-
-		// Bail if no data.
-		if ( ! $data ) {
-			/** @disregard P1008 */
-			return $content;
-		}
-
-		// Get image aspect ratio.
-		$orientation = $data['image_orientation'] ?? null;
-		$image_size  = $data['image_size'] ?? null;
-		$ratio       = $this->get_image_aspect_ratio( $orientation, $image_size );
-
-		// Set args.
-		$args = [
-			'aspect_ratio' => $ratio,
-			'max_width'  => 1600,
-			'sizes'      => [
-				'mobile'  => '90vw',
-				'tablet'  => '80vw',
-				'desktop' => '70vw',
-			],
-		];
-
-		/** @disregard P1008 */
-		return $this->handle_image( $content, $args );
 	}
 
 	/**
@@ -350,6 +295,47 @@ class MaiEngine extends Images {
 			/** @disregard P1008 */
 			return $content;
 		}
+
+		// Set index.
+		static $index = 0;
+		$index++;
+
+		// Get loading and count.
+		$loading = $data['image_loading'] ?? 'lazy';
+		$count   = $data['image_loading_count'] ?? null;
+
+		// If count is over the index, force lazy loading.
+		if ( ! $loading || ( $count && $count < $this->grid_entry_index ) ) {
+			$loading = 'lazy';
+		}
+
+		// Set up tag processor.
+		$tags = new WP_HTML_Tag_Processor( $content );
+
+		// Loop through tags.
+		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
+			// Add loading attribute.
+			$tags->set_attribute( 'loading', $loading );
+
+			// Switch loading attribute.
+			switch ( $loading ) {
+				// If eager, set fetchpriority to high.
+				case 'eager':
+					$tags->set_attribute( 'fetchpriority', 'high' );
+					$tags->set_attribute( 'decoding', 'sync' );
+					break;
+				// If lazy, set fetchpriority to low.
+				// We were sometimes seeing loading as lazy, but fetchpriority as high.
+				// This makes sure that doesn't happen.
+				case 'lazy':
+					$tags->set_attribute( 'fetchpriority', 'low' );
+					$tags->set_attribute( 'decoding', 'async' );
+					break;
+			}
+		}
+
+		// Get updated block content.
+		$content = $tags->get_updated_html();
 
 		/** @disregard P1010 */
 		$columns     = array_reverse( \mai_get_breakpoint_columns( $data ) );
@@ -378,6 +364,79 @@ class MaiEngine extends Images {
 	}
 
 	/**
+	 * Render the single entry image.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $content The content.
+	 * @param array  $args    The args.
+	 * @return string
+	 */
+	public function render_single_entry_image( string $content, array $args ): string {
+		/**
+		 * Get template args.
+		 * @disregard P1010
+		 */
+		$data = \mai_get_template_args();
+
+		// Bail if no data.
+		if ( ! $data ) {
+			/** @disregard P1008 */
+			return $content;
+		}
+
+		// Get loading.
+		$loading = $data['image_loading'] ?? 'lazy';
+
+		// Setup tag processor.
+		$tags = new WP_HTML_Tag_Processor( $content );
+
+		// Loop through tags.
+		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
+			// Add loading attribute.
+			$tags->set_attribute( 'loading', $loading );
+
+			// Switch loading attribute.
+			switch ( $loading ) {
+				// If eager, set fetchpriority to high.
+				case 'eager':
+					$tags->set_attribute( 'fetchpriority', 'high' );
+					$tags->set_attribute( 'decoding', 'sync' );
+					break;
+				// If lazy, set fetchpriority to low.
+				// We were sometimes seeing loading as lazy, but fetchpriority as high.
+				// This makes sure that doesn't happen.
+				case 'lazy':
+					$tags->set_attribute( 'fetchpriority', 'low' );
+					$tags->set_attribute( 'decoding', 'async' );
+					break;
+			}
+		}
+
+		// Get updated content.
+		$content = $tags->get_updated_html();
+
+		// Get image aspect ratio.
+		$orientation = $data['image_orientation'] ?? null;
+		$image_size  = $data['image_size'] ?? null;
+		$ratio       = $this->get_image_aspect_ratio( $orientation, $image_size );
+
+		// Set args.
+		$args = [
+			'aspect_ratio' => $ratio,
+			'max_width'  => 1600,
+			'sizes'      => [
+				'mobile'  => '90vw',
+				'tablet'  => '80vw',
+				'desktop' => '70vw',
+			],
+		];
+
+		/** @disregard P1008 */
+		return $this->handle_image( $content, $args );
+	}
+
+	/**
 	 * Render the Mai Grid block.
 	 *
 	 * @since 0.1.0
@@ -387,7 +446,7 @@ class MaiEngine extends Images {
 	 *
 	 * @return string
 	 */
-	public function render_mai_grid_block( string $block_content, array $block ): string {
+	public function render_block_entry_image( string $block_content, array $block ): string {
 		// Reset the grid entry index.
 		$this->grid_entry_index = 1;
 
@@ -449,13 +508,206 @@ class MaiEngine extends Images {
 	}
 
 	/**
+	 * Add attributes to entry image link.
+	 * We can't add these attributes in the render_block filter
+	 * because the new block args are not available yet.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param string $content The existing content.
+	 * @param array  $args    The layout args.
+	 *
+	 * @return string
+	 */
+	public function add_grid_attributes( string $content, array $args ): string {
+		$data = isset( $args['params']['args'] ) ? $args['params']['args'] : null;
+
+		// Bail if no data.
+		if ( ! $data ) {
+			return $content;
+		}
+
+		// Get context.
+		$context = $args['params']['args']['context'] ?? null;
+
+		// Bail if not a block.
+		if ( 'block' !== $context ) {
+			return $content;
+		}
+
+		// Get loading and count.
+		$loading = $data['image_loading'] ?? 'lazy';
+		$count   = $data['image_loading_count'] ?? null;
+
+		// Bail if no loading.
+		if ( ! $loading ) {
+			return $content;
+		}
+
+		// If count is over the index, force lazy loading.
+		if ( $count && $count < $this->grid_entry_index ) {
+			$loading = 'lazy';
+		}
+
+		// Set up tag processor.
+		$tags = new WP_HTML_Tag_Processor( $content );
+
+		// Loop through tags.
+		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
+			// Add loading attribute.
+			$tags->set_attribute( 'loading', $loading );
+
+			// Switch loading attribute.
+			switch ( $loading ) {
+				// If eager, set fetchpriority to high.
+				case 'eager':
+					$tags->set_attribute( 'fetchpriority', 'high' );
+					$tags->set_attribute( 'decoding', 'sync' );
+					break;
+				// If lazy, set fetchpriority to low.
+				// We were sometimes seeing loading as lazy, but fetchpriority as high.
+				// This makes sure that doesn't happen.
+				case 'lazy':
+					$tags->set_attribute( 'fetchpriority', 'low' );
+					$tags->set_attribute( 'decoding', 'async' );
+					break;
+			}
+		}
+
+		// Get updated block content.
+		$content = $tags->get_updated_html();
+
+		return $content;
+	}
+
+	/**
+	 * Add archive settings.
+	 *
+	 * @since TBD
+	 *
+	 * @param array $settings The settings.
+	 * @param string $name The name.
+	 *
+	 * @return array
+	 */
+	public function add_archive_settings( array $settings, string $name ): array {
+		// Loop through settings.
+		foreach ( $settings as $index => $setting ) {
+			if ( ! isset( $setting['settings'] ) || 'image_width' !== $setting['settings'] ) {
+				continue;
+			}
+
+			// Build new settings.
+			$new = [
+				[
+					'settings'       => 'image_loading',
+					'label'          => 'Image Loading',
+					'type'           => 'select',
+					'default'        => '',
+					'choices'        => [
+						''      => esc_html__( 'Default', 'mai-performance-images' ),
+						'lazy'  => esc_html__( 'Lazy (for offscreen images)', 'mai-performance-images' ),
+						'eager' => esc_html__( 'Eager (loads immediately)', 'mai-performance-images' ),
+					],
+					'active_callback' => [
+						[
+							'setting'  => 'show',
+							'operator' => 'contains',
+							'value'    => 'image',
+						],
+					],
+				],
+				[
+					'settings'        => 'image_loading_count',
+					'label'           => 'Image Loading Count',
+					'description'     => esc_html__( 'Enter the number of entries to eager load images for. The rest will be lazy loaded. Leave empty or use 0 to eagerload all images.', 'mai-performance-images' ),
+					'type'            => 'text',
+					'sanitize'        => 'absint',
+					'default'         => '',
+					'active_callback' => [
+						[
+							'setting'  => 'show',
+							'operator' => 'contains',
+							'value'    => 'image',
+						],
+						[
+							'setting'  => 'image_loading',
+							'operator' => '==',
+							'value'    => 'eager',
+						],
+					],
+				],
+			];
+
+			// Insert the new setting after the current setting.
+			array_splice( $settings, $index + 1, 0, $new );
+			break;
+		}
+
+		// Reindex settings.
+		$settings = array_values( $settings );
+
+		return $settings;
+	}
+
+	/**
+	 * Add single settings.
+	 *
+	 * @since TBD
+	 *
+	 * @param array $settings The settings.
+	 * @param string $name The name.
+	 *
+	 * @return array
+	 */
+	public function add_single_settings( array $settings, string $name ): array {
+		// Loop through settings.
+		foreach ( $settings as $index => $setting ) {
+			if ( ! isset( $setting['settings'] ) || 'image_size' !== $setting['settings'] ) {
+				continue;
+			}
+
+			// Build new settings.
+			$new = [
+				[
+					'settings'       => 'image_loading',
+					'label'          => 'Image Loading',
+					'type'           => 'select',
+					'default'        => '',
+					'choices'        => [
+						''      => esc_html__( 'Default', 'mai-performance-images' ),
+						'lazy'  => esc_html__( 'Lazy (for offscreen images)', 'mai-performance-images' ),
+						'eager' => esc_html__( 'Eager (loads immediately)', 'mai-performance-images' ),
+					],
+					'active_callback' => [
+						[
+							'setting'  => 'show',
+							'operator' => 'contains',
+							'value'    => 'image',
+						],
+					],
+				],
+			];
+
+			// Insert the new setting after the current setting.
+			array_splice( $settings, $index + 1, 0, $new );
+			break;
+		}
+
+		// Reindex settings.
+		$settings = array_values( $settings );
+
+		return $settings;
+	}
+
+	/**
 	 * Register grid block field group.
 	 *
 	 * @since 0.1.0
 	 *
 	 * @return void
 	 */
-	public function register_grid_block_field_group(): void {
+	public function add_grid_block_field_group(): void {
 		if ( ! function_exists( 'acf_add_local_field_group' ) ) {
 			return;
 		}
@@ -464,10 +716,10 @@ class MaiEngine extends Images {
 		\acf_add_local_field_group(
 			[
 				'key'   => 'mai_performance_images_grid_block_field_group',
-				'title' => esc_html__( 'Mai Performance Images', 'mai-engine' ),
+				'title' => esc_html__( 'Mai Performance Images', 'mai-performance-images' ),
 				'fields' => [
 					[
-						'label'        => __( 'Mai Performance Images', 'mai-engine' ),
+						'label'        => __( 'Mai Performance Images', 'mai-performance-images' ),
 						'key'          => 'field_63f9a2b4c8d1e',
 						'type'         => 'accordion',
 						'open'         => 0,
@@ -477,12 +729,12 @@ class MaiEngine extends Images {
 					[
 						'key'     => 'field_63f9a2b4c8d2e',
 						'name'    => 'image_loading',
-						'label'   => esc_html__( 'Image Loading', 'mai-engine' ),
+						'label'   => esc_html__( 'Image Loading', 'mai-performance-images' ),
 						'type'    => 'select',
 						'choices' => [
-							''      => esc_html__( 'Default', 'mai-engine' ),
-							'lazy'  => esc_html__( 'Lazy (for offscreen images)', 'mai-engine' ),
-							'eager' => esc_html__( 'Eager (loads immediately)', 'mai-engine' ),
+							''      => esc_html__( 'Default', 'mai-performance-images' ),
+							'lazy'  => esc_html__( 'Lazy (for offscreen images)', 'mai-performance-images' ),
+							'eager' => esc_html__( 'Eager (loads immediately)', 'mai-performance-images' ),
 						],
 						'conditional_logic' => [
 							[
@@ -495,8 +747,8 @@ class MaiEngine extends Images {
 					[
 						'key'               => 'field_63f9a2b4c8d3e',
 						'name'              => 'image_loading_count',
-						'label'             => esc_html__( 'Image Loading Count', 'mai-engine' ),
-						'instructions'      => esc_html__( 'Enter the number of entries to eager load images for. The rest will be lazy loaded. Leave empty or use 0 to eagerload all images.', 'mai-engine' ),
+						'label'             => esc_html__( 'Image Loading Count', 'mai-performance-images' ),
+						'instructions'      => esc_html__( 'Enter the number of entries to eager load images for. The rest will be lazy loaded. Leave empty or use 0 to eagerload all images.', 'mai-performance-images' ),
 						'type'              => 'number',
 						'conditional_logic' => [
 							[
@@ -550,73 +802,6 @@ class MaiEngine extends Images {
 		$args['image_loading_count'] = \get_field( 'image_loading_count' );
 
 		return $args;
-	}
-
-	/**
-	 * Add attributes to entry image link.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $content The existing content.
-	 * @param array  $args    The layout args.
-	 *
-	 * @return string
-	 */
-	public function add_attributes( string $content, array $args ): string {
-		$data = isset( $args['params']['args'] ) ? $args['params']['args'] : null;
-
-		// Bail if no data.
-		if ( ! $data ) {
-			return $content;
-		}
-
-		// Get context.
-		$context = $args['params']['args']['context'] ?? null;
-
-		// Bail if not a block.
-		if ( 'block' !== $context ) {
-			return $content;
-		}
-
-		// Get loading and count.
-		$default = 'lazy';
-		$loading = $data['image_loading'] ?? $default;
-		$count   = $data['image_loading_count'] ?? null;
-
-		// Bail if no loading.
-		if ( ! $loading ) {
-			return $content;
-		}
-
-		// If count is over the index, force lazy loading.
-		if ( $count && $count < $this->grid_entry_index ) {
-			$loading = 'lazy';
-		}
-
-		// Set up tag processor.
-		$tags = new \WP_HTML_Tag_Processor( $content );
-
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
-			// Add loading attribute.
-			$tags->set_attribute( 'loading', $loading );
-
-			// If eager, set fetchpriority to high.
-			if ( 'eager' === $loading ) {
-				$tags->set_attribute( 'fetchpriority', 'high' );
-			}
-			// Otherwise set fetchpriority to low.
-			// We were sometimes seeing loading as lazy, but fetchpriority as high.
-			// This makes sure that doesn't happen.
-			else {
-				$tags->set_attribute( 'fetchpriority', 'low' );
-			}
-		}
-
-		// Get updated block content.
-		$content = $tags->get_updated_html();
-
-		return $content;
 	}
 
 	/**
