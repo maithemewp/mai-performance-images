@@ -225,17 +225,7 @@ class MaiEngine extends Images {
 
 		// Get entry and set image ID variable.
 		$entry    = $args['params']['entry'];
-		$image_id = null;
-
-		// If instanceof WP_Post, get image ID.
-		if ( $entry instanceof \WP_Post ) {
-			$image_id = get_post_thumbnail_id( $entry->ID );
-		}
-
-		// If instanceof WP_Term, get image ID.
-		if ( $entry instanceof \WP_Term ) {
-			$image_id = get_term_meta( $entry->term_id, 'thumbnail_id', true );
-		}
+		$image_id = get_post_thumbnail_id( $entry->ID );
 
 		// Bail if no image ID.
 		if ( ! $image_id ) {
@@ -259,11 +249,11 @@ class MaiEngine extends Images {
 
 		// Return the content based on the context.
 		switch ( $args['params']['args']['context'] ) {
-			case 'single':
-				$content = $this->render_single_entry_image( $content, $args );
-				break;
 			case 'archive':
 				$content = $this->render_archive_entry_image( $content, $args );
+				break;
+			case 'single':
+				$content = $this->render_single_entry_image( $content, $args );
 				break;
 			default:
 				break;
@@ -304,8 +294,8 @@ class MaiEngine extends Images {
 		$loading = $data['image_loading'] ?? 'lazy';
 		$count   = $data['image_loading_count'] ?? null;
 
-		// If count is over the index, force lazy loading.
-		if ( ! $loading || ( $count && $count < $this->grid_entry_index ) ) {
+		// If not loading or index is greater than count, set to lazy.
+		if ( ! $loading || ( $count && $index > $count ) ) {
 			$loading = 'lazy';
 		}
 
