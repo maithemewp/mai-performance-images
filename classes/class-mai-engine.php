@@ -45,7 +45,7 @@ class MaiEngine extends Images {
 		// Add hooks.
 		add_action( 'genesis_site_title',                      [ $this, 'before_logo' ], 0 );
 		add_filter( 'mai_page_header_img',                     [ $this, 'render_page_header_image' ], 999, 3 );
-		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'render_archive_single_image' ], 10, 3 );
+		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'render_entry_image' ], 10, 3 );
 		add_filter( 'render_block_acf/mai-post-grid',          [ $this, 'render_block_entry_image' ], 99, 2 );
 		add_filter( 'render_block_acf/mai-term-grid',          [ $this, 'render_block_entry_image' ], 99, 2 );
 		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'add_grid_attributes' ], 10, 2 );
@@ -204,15 +204,9 @@ class MaiEngine extends Images {
 	 *
 	 * @return array
 	 */
-	public function render_archive_single_image( string $content, array $args ): string {
+	public function render_entry_image( string $content, array $args ): string {
 		// Bail if not showing the image.
 		if ( ! ( isset( $args['params']['args']['show'] ) && in_array( 'image', (array) $args['params']['args']['show'] ) ) ) {
-			/** @disregard P1008 */
-			return $content;
-		}
-
-		// Bail if context is not single or archive.
-		if ( ! ( isset( $args['params']['args']['context'] ) && in_array( $args['params']['args']['context'], [ 'single', 'archive' ] ) ) ) {
 			/** @disregard P1008 */
 			return $content;
 		}
@@ -223,9 +217,8 @@ class MaiEngine extends Images {
 			return $content;
 		}
 
-		// Get entry and set image ID variable.
-		$entry    = $args['params']['entry'];
-		$image_id = get_post_thumbnail_id( $entry->ID );
+		// Set image ID.
+		$image_id = $args['params']['args']['image_id'] ?? null;
 
 		// Bail if no image ID.
 		if ( ! $image_id ) {
@@ -255,6 +248,8 @@ class MaiEngine extends Images {
 			case 'single':
 				$content = $this->render_single_entry_image( $content, $args );
 				break;
+			// Skip block since we only need to set image ID here.
+			// The `render_block_entry_image` method will handle the rest.
 			default:
 				break;
 		}
@@ -338,7 +333,7 @@ class MaiEngine extends Images {
 		$ratio = $this->get_image_aspect_ratio( $orientation, $image_size );
 
 		// Set args.
-		$args = [
+		$image_args = [
 			'aspect_ratio' => $ratio,
 			'max_width'  => (int) ( 2400 / (int) $columns['lg'] / $side ),
 			'max_images' => 0, // Process all images in the archive.
@@ -350,7 +345,7 @@ class MaiEngine extends Images {
 		];
 
 		/** @disregard P1008 */
-		return $this->handle_image( $content, $args );
+		return $this->handle_image( $content, $image_args );
 	}
 
 	/**
@@ -412,7 +407,7 @@ class MaiEngine extends Images {
 		$ratio       = $this->get_image_aspect_ratio( $orientation, $image_size );
 
 		// Set args.
-		$args = [
+		$image_args = [
 			'aspect_ratio' => $ratio,
 			'max_width'  => 1600,
 			'sizes'      => [
@@ -423,7 +418,7 @@ class MaiEngine extends Images {
 		];
 
 		/** @disregard P1008 */
-		return $this->handle_image( $content, $args );
+		return $this->handle_image( $content, $image_args );
 	}
 
 	/**
@@ -458,12 +453,24 @@ class MaiEngine extends Images {
 		}
 
 		// Get image aspect ratio.
+		$image_id    = null;
 		$orientation = $data['image_orientation'] ?? null;
 		$image_size  = $data['image_size'] ?? null;
 		$ratio       = $this->get_image_aspect_ratio( $orientation, $image_size );
 
+		// Setup tag processor.
+		$tags = new WP_HTML_Tag_Processor( $block_content );
+
+		// Loop through tags.
+		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
+			// Get image ID.
+			$image_id = $tags->get_attribute( 'data-mai-image-id' );
+			$image_id = $image_id ? (int) $image_id : null;
+		}
+
 		// Set args.
-		$args = [
+		$image_args = [
+			'image_id'     => $image_id,
 			'aspect_ratio' => $ratio,
 			'max_width'    => $max_width,
 			'max_images'   => 0, // Process all images in the grid
@@ -475,7 +482,7 @@ class MaiEngine extends Images {
 		];
 
 		/** @disregard P1008 */
-		return $this->handle_image( $block_content, $args );
+		return $this->handle_image( $block_content, $image_args );
 	}
 
 	/**
