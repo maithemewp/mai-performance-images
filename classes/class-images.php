@@ -283,7 +283,7 @@ class Images extends AbstractImages {
 
 		// Loop through tags.
 		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
-			$class   = $tags->get_attribute( 'class' );
+			$class   = (string) $tags->get_attribute( 'class' );
 			$classes = explode( ' ', $class );
 
 			// Get the class that starts with 'wp-image-'
