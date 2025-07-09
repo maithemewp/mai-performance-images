@@ -104,9 +104,9 @@ class DownloadManager {
 		// Check for download errors.
 		if ( is_wp_error( $response ) ) {
 			$this->logger->error( 'Failed to download external image', [
-				'url' => $url,
+				'url'         => $url,
 				'decoded_url' => $decoded_url,
-				'error' => $response->get_error_message()
+				'error'       => $response->get_error_message()
 			] );
 			return null;
 		}
@@ -115,8 +115,8 @@ class DownloadManager {
 		$response_code = wp_remote_retrieve_response_code( $response );
 		if ( $response_code !== 200 ) {
 			$this->logger->error( 'External image download failed with HTTP error', [
-				'url' => $url,
-				'decoded_url' => $decoded_url,
+				'url'           => $url,
+				'decoded_url'   => $decoded_url,
 				'response_code' => $response_code
 			] );
 			@unlink( $temp_path );
@@ -125,12 +125,13 @@ class DownloadManager {
 
 		// Validate it's actually an image file.
 		$file_info = wp_check_filetype( $temp_path );
+		$file_type = $file_info['type'] ?? null;
 
-		if ( ! $file_info || ! str_starts_with( $file_info['type'], 'image/' ) ) {
+		if ( $file_type && ! str_starts_with( $file_type, 'image/' ) ) {
 			$this->logger->error( 'Downloaded file is not a valid image', [
-				'url' => $url,
+				'url'         => $url,
 				'decoded_url' => $decoded_url,
-				'file_type' => $file_info['type'] ?? 'unknown'
+				'file_type'   => $file_type
 			] );
 			@unlink( $temp_path );
 			return null;
@@ -140,9 +141,9 @@ class DownloadManager {
 		$file_size = filesize( $temp_path );
 		if ( 0 === $file_size ) {
 			$this->logger->error( 'Downloaded file size is invalid', [
-				'url' => $url,
+				'url'         => $url,
 				'decoded_url' => $decoded_url,
-				'file_size' => $file_size
+				'file_size'   => $file_size
 			] );
 			@unlink( $temp_path );
 			return null;
