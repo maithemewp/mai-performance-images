@@ -313,7 +313,7 @@ abstract class AbstractImages {
 		// Set up tag processor.
 		$tags = new \WP_HTML_Tag_Processor( $html );
 
-		// Track number of images processed
+		// Track number of images processed.
 		$images_processed = 0;
 
 		// Loop through tags.
@@ -344,8 +344,8 @@ abstract class AbstractImages {
 			$extension  = $path_parts['extension'] ?? '';
 			$filename   = $path_parts['filename'] ?? '';
 
-			// Skip if no extension or it's an svg.
-			if ( ! $extension || 'svg' === $extension ) {
+			// Skip if an svg. Some urls (like gravatar) don't have an extension but serve a valid image.
+			if ( 'svg' === $extension ) {
 				continue;
 			}
 
