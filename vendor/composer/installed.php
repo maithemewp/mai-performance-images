@@ -3,7 +3,7 @@
         'name' => 'maitheme/mai-performance-images',
         'pretty_version' => 'dev-develop',
         'version' => 'dev-develop',
-        'reference' => '4247d630026a5375d034ea24d4a0168ee1878559',
+        'reference' => '52349138b4c7200097439c112a2cd5e6c56db3dd',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -40,7 +40,7 @@
         'maitheme/mai-performance-images' => array(
             'pretty_version' => 'dev-develop',
             'version' => 'dev-develop',
-            'reference' => '4247d630026a5375d034ea24d4a0168ee1878559',
+            'reference' => '52349138b4c7200097439c112a2cd5e6c56db3dd',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

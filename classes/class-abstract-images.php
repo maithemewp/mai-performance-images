@@ -30,6 +30,15 @@ abstract class AbstractImages {
 	protected $logger;
 
 	/**
+	 * The download manager instance.
+	 *
+	 * @since 0.4.0
+	 *
+	 * @var DownloadManager
+	 */
+	protected $download_manager;
+
+	/**
 	 * The tablet breakpoint in pixels.
 	 *
 	 * @since 0.1.0
@@ -82,7 +91,8 @@ abstract class AbstractImages {
 	 * @return void
 	 */
 	public function __construct() {
-		$this->logger = Logger::get_instance();
+		$this->logger           = Logger::get_instance();
+		$this->download_manager = DownloadManager::get_instance();
 		$this->hooks();
 		$this->core_hooks();
 
@@ -111,6 +121,7 @@ abstract class AbstractImages {
 		add_action( 'init',               [ $this, 'set_queue' ] );
 		add_filter( 'wp_content_img_tag', [ $this, 'filter_content_img_tag' ], 999, 3 );
 		add_filter( 'get_custom_logo',    [ $this, 'filter_custom_logo' ], 999, 2 );
+		add_filter( 'get_avatar',         [ $this, 'filter_avatar' ], 999, 2 );
 	}
 
 	/**
@@ -152,6 +163,20 @@ abstract class AbstractImages {
 	 */
 	public function filter_custom_logo( string $html ): string {
 		return $this->handle_attributes( $html );
+	}
+
+	/**
+	 * Filters the avatar.
+	 *
+	 * @since 0.4.0
+	 *
+	 * @param string|null $avatar      The avatar HTML.
+	 * @param mixed       $id_or_email The user ID or email address.
+	 *
+	 * @return string
+	 */
+	public function filter_avatar( ?string $avatar, mixed $id_or_email ): ?string {
+		return $this->handle_attributes( $avatar );
 	}
 
 	/**
@@ -303,7 +328,7 @@ abstract class AbstractImages {
 			// Get uploads directory info.
 			$uploads = wp_get_upload_dir();
 
-			// Parse URL to get path.
+			// Get path.
 			$url_path = wp_parse_url( $src, PHP_URL_PATH );
 
 			// Skip if no path.
@@ -314,11 +339,6 @@ abstract class AbstractImages {
 			// Convert URL to path relative to uploads directory.
 			$path = str_replace( wp_parse_url( $uploads['baseurl'], PHP_URL_PATH ) . '/', '', $url_path );
 
-			// Skip if path is unchanged (means URL wasn't in uploads directory).
-			if ( $path === $url_path ) {
-				continue;
-			}
-
 			// Get the original extension.
 			$path_parts = pathinfo( $path );
 			$extension  = $path_parts['extension'] ?? '';
@@ -328,6 +348,9 @@ abstract class AbstractImages {
 			if ( ! $extension || 'svg' === $extension ) {
 				continue;
 			}
+
+			// Check if this is an external image.
+			$is_external = $this->is_external( $src );
 
 			// Set image ID.
 			$image_id = $tags->get_attribute( 'data-mai-image-id' );
@@ -348,8 +371,52 @@ abstract class AbstractImages {
 				}
 			}
 
-			// Get the full path to the original image.
-			$original_path = $uploads['basedir'] . '/' . $path;
+			// Handle external images differently.
+			$original_url = null;
+			if ( $is_external ) {
+				// Generate filename for external image and set original URL.
+				$external_filename = $this->download_manager->generate_filename( $src );
+				$filename          = pathinfo( $external_filename, PATHINFO_FILENAME );
+				$original_url      = $src;
+
+				// Check if WebP cache already exists for the main src size.
+				$src_height = null;
+				if ( $args['aspect_ratio'] ) {
+					$ratio = $args['aspect_ratio'];
+					if ( str_contains( $ratio, '/' ) ) {
+						list( $ratio_width, $ratio_height ) = explode( '/', $ratio );
+						$ratio = (float) $ratio_width / (float) $ratio_height;
+					} else {
+						$ratio = (float) $ratio;
+					}
+					$src_height = round( $args['src_width'] / $ratio );
+				}
+
+				// Check if cache exists using the unified method.
+				$cache_check = $this->check_cached_file( [
+					'original_path' => 'external-cached',
+					'filename'      => $filename,
+					'width'         => $args['src_width'],
+					'height'        => $src_height,
+					'original_url'  => $original_url,
+				] );
+
+				// If cache exists, we don't need to download anything.
+				if ( $cache_check['success'] ) {
+					$original_path = 'external-cached';
+				} else {
+					// Cache doesn't exist, download the image.
+					$original_path = $this->download_image( $src );
+
+					// Skip if download failed.
+					if ( ! $original_path ) {
+						continue;
+					}
+				}
+			} else {
+				// Get the full path to the original image (local files).
+				$original_path = $uploads['basedir'] . '/' . $path;
+			}
 
 			// Set base widths and start srcset.
 			$base_widths = [ 400, 800, 1200, 1600, 2400 ];
@@ -384,7 +451,13 @@ abstract class AbstractImages {
 				}
 
 				// Check for cached file and queue for processing if needed.
-				$result = $this->check_cached_file( $original_path, $filename, $w, $height );
+				$result = $this->check_cached_file( [
+					'original_path' => $original_path,
+					'filename'      => $filename,
+					'width'         => $w,
+					'height'        => $height,
+					'original_url'  => $original_url,
+				] );
 
 				// If not successful, mark as not all available.
 				if ( ! $result['success'] ) {
@@ -442,7 +515,13 @@ abstract class AbstractImages {
 			}
 
 			// Check for cached file and queue for processing if needed.
-			$src_result = $this->check_cached_file( $original_path, $filename, $args['src_width'], $src_height );
+			$src_result = $this->check_cached_file( [
+				'original_path' => $original_path,
+				'filename'      => $filename,
+				'width'         => $args['src_width'],
+				'height'        => $src_height,
+				'original_url'  => $original_url,
+			] );
 
 			// If src is not successful, mark as not all available.
 			if ( ! $src_result['success'] ) {
@@ -508,14 +587,48 @@ abstract class AbstractImages {
 	}
 
 	/**
+	 * Check if a URL is external to the current site.
+	 *
+	 * @since 0.4.0
+	 *
+	 * @param string $url The URL to check.
+	 *
+	 * @return bool True if the URL is external, false otherwise.
+	 */
+	protected function is_external( string $url ): bool {
+		$url_host     = wp_parse_url( $url, PHP_URL_HOST );
+		$current_host = wp_parse_url( home_url(), PHP_URL_HOST );
+
+		return ( $url_host && $url_host !== $current_host );
+	}
+
+	/**
+	 * Download an external image to a temporary location.
+	 *
+	 * @since 0.4.0
+	 *
+	 * @param string $url The URL of the external image.
+	 *
+	 * @return string|null Path to the downloaded file or null if download failed.
+	 */
+	protected function download_image( string $url ): ?string {
+		return $this->download_manager->download_image( $url );
+	}
+
+	/**
 	 * Check if a cached file exists and queue it for processing if needed.
 	 *
 	 * @since 0.1.0
 	 *
-	 * @param string $original_path The original image path.
-	 * @param string $filename      The filename without extension.
-	 * @param int    $width         The target width.
-	 * @param int    $height        The target height.
+	 * @param array $args {
+	 *     Arguments for checking the cached file.
+	 *
+	 *     @type string      $original_path The original image path.
+	 *     @type string      $filename      The filename without extension.
+	 *     @type int         $width         The target width.
+	 *     @type int|null    $height        The target height.
+	 *     @type string|null $original_url  The original URL for external images.
+	 * }
 	 *
 	 * @return array {
 	 *     The result of the check.
@@ -524,35 +637,75 @@ abstract class AbstractImages {
 	 *     @type string $url     The URL to use for the image.
 	 * }
 	 */
-	protected function check_cached_file( string $original_path, string $filename, int $width, ?int $height = null ): array {
-		// Get uploads directory info.
+	protected function check_cached_file( array $args ): array {
+		// Parse args with defaults.
+		$args = wp_parse_args( $args, [
+			'original_path' => '',
+			'filename'      => '',
+			'width'         => 0,
+			'height'        => null,
+			'original_url'  => null,
+		] );
+
 		$uploads = wp_get_upload_dir();
 
-		// Get the relative path from uploads directory.
-		$relative_path = str_replace( $uploads['basedir'] . '/', '', $original_path );
-		$dir_name      = dirname( $relative_path );
+		// Determine if this is an external image and get cache directory.
+		$is_external = false;
+		$cache_dir = $uploads['basedir'] . '/mai-performance-images';
 
-		// Generate cache path in the mai-performance-images directory, preserving the original directory structure.
-		$cache_dir  = $uploads['basedir'] . '/mai-performance-images' . ( '.' === $dir_name ? '' : '/' . $dir_name );
-		$cache_path = $cache_dir . '/' . $filename . '-' . $width . 'x' . ( $height ?? 'auto' ) . '.webp';
+		if ( $args['original_path'] === 'external-cached' ) {
+			// External image with existing cache - no need to download.
+			$is_external = true;
+		} elseif ( str_contains( $args['original_path'], 'mai-performance-images/tmp' ) ) {
+			// External image that was downloaded.
+			$is_external = true;
+		} else {
+			// Local image - preserve directory structure.
+			$relative_path = str_replace( $uploads['basedir'] . '/', '', $args['original_path'] );
+			$dir_name = dirname( $relative_path );
+			$cache_dir = $uploads['basedir'] . '/mai-performance-images' . ( '.' === $dir_name ? '' : '/' . $dir_name );
+		}
+
+		// For external images, use a separate subdirectory.
+		if ( $is_external ) {
+			$cache_dir .= '/external';
+
+			// Create external directory if it doesn't exist.
+			if ( ! file_exists( $cache_dir ) ) {
+				wp_mkdir_p( $cache_dir );
+			}
+		}
+
+		// Generate cache path.
+		$cache_path = $cache_dir . '/' . $args['filename'] . '-' . $args['width'] . 'x' . ( $args['height'] ?? 'auto' ) . '.webp';
 
 		// Check if cached file exists and is not empty.
 		if ( file_exists( $cache_path ) && filesize( $cache_path ) > 0 ) {
-			// Get file modification time.
-			$cache_time = filemtime( $cache_path );
-
-			// Check if original file exists before getting its modification time.
-			if ( ! file_exists( $original_path ) ) {
-				// If original file doesn't exist, return the cached version.
+			// For external images, assume cache is valid (we don't keep originals).
+			if ( $is_external ) {
+				$this->logger->info( 'External image cache found', [
+					'cache_path' => $cache_path,
+					'filename'   => $args['filename'],
+				] );
 				return [
 					'success' => true,
 					'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $cache_path ),
 				];
 			}
 
-			$original_time = filemtime( $original_path );
+			// For local images, check file modification times.
+			$cache_time = filemtime( $cache_path );
 
-			// If cache is newer than original, we're good.
+			if ( ! file_exists( $args['original_path'] ) ) {
+				// Original doesn't exist, return cached version.
+				return [
+					'success' => true,
+					'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $cache_path ),
+				];
+			}
+
+			$original_time = filemtime( $args['original_path'] );
+
 			if ( $cache_time > $original_time ) {
 				return [
 					'success' => true,
@@ -561,30 +714,40 @@ abstract class AbstractImages {
 			}
 		}
 
-		// Check if original file exists before adding to queue.
-		if ( ! file_exists( $original_path ) ) {
-			// If original file doesn't exist, return the original URL.
+		// Cache doesn't exist or is stale. Check if we can process.
+		if ( ! $is_external && ! file_exists( $args['original_path'] ) ) {
+			// Local image doesn't exist.
 			return [
 				'success' => false,
-				'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $original_path ),
+				'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $args['original_path'] ),
 			];
 		}
 
-		// Add to static queue items array.
+		// Add to queue for processing.
 		$queue_item = [
-			'original_path' => $original_path,
+			'original_path' => $args['original_path'],
 			'cache_path'    => $cache_path,
-			'width'         => $width,
-			'height'        => $height,
+			'width'         => $args['width'],
+			'height'        => $args['height'],
 		];
 
-		// Add to static queue items array.
+		if ( $is_external ) {
+			$queue_item['is_external']  = true;
+			$queue_item['original_url'] = $args['original_url'];
+
+			$this->logger->info( 'External image added to queue', [
+				'cache_path' => $cache_path,
+				'filename'   => $args['filename'],
+				'url'        => $args['original_url'],
+			] );
+		}
+
 		self::$queue_items[] = $queue_item;
 
-		// Return the original image URL for now.
+		// Return original URL for now.
 		return [
 			'success' => false,
-			'url'     => str_replace( $uploads['basedir'], $uploads['baseurl'], $original_path ),
+			'url'     => $is_external ? $args['original_url'] : str_replace( $uploads['basedir'], $uploads['baseurl'], $args['original_path'] ),
 		];
 	}
 
@@ -618,7 +781,6 @@ abstract class AbstractImages {
 		// If we added any items, save and dispatch the queue.
 		if ( $has_items ) {
 			$this->queue->save()->dispatch();
-			$this->logger->info( 'New items added to queue and dispatched' );
 		}
 
 		// Clear the static array.

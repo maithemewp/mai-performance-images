@@ -18,7 +18,7 @@ class Logger {
 	 *
 	 * @since 0.1.0
 	 *
-	 * @var Logger
+	 * @var Logger|null
 	 */
 	private static $instance = null;
 
