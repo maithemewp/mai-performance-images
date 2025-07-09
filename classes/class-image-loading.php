@@ -33,8 +33,10 @@ final class ImageLoading {
 		add_action( 'enqueue_block_editor_assets',           [ $this, 'enqueue_block_editor_assets' ] );
 		add_filter( 'render_block_core/cover',               [ $this, 'render_loading_attribute' ], 10, 2 );
 		add_filter( 'render_block_core/image',               [ $this, 'render_loading_attribute' ], 10, 2 );
-		add_filter( 'render_block_core/site-logo',           [ $this, 'render_loading_attribute' ], 10, 2 );
 		add_filter( 'render_block_core/post-featured-image', [ $this, 'render_loading_attribute' ], 10, 2 );
+		add_filter( 'render_block_core/media-text',          [ $this, 'render_loading_attribute' ], 10, 2 );
+		add_filter( 'render_block_core/site-logo',           [ $this, 'render_loading_attribute' ], 10, 2 );
+		add_filter( 'get_avatar',                            [ $this, 'render_avatar_loading_attribute' ], 10, 2 );
 	}
 
 	/**
@@ -100,5 +102,31 @@ final class ImageLoading {
 		$block_content = $tags->get_updated_html();
 
 		return $block_content;
+	}
+
+	/**
+	 * Render the avatar loading attribute.
+	 *
+	 * @since 0.4.0
+	 *
+	 * @param string $avatar The avatar HTML.
+	 * @param mixed  $id_or_email The user ID or email address.
+	 *
+	 * @return string The avatar HTML.
+	 */
+	public function render_avatar_loading_attribute( $avatar, $id_or_email ) {
+		// Set up tag processor.
+		$tags = new \WP_HTML_Tag_Processor( $avatar );
+
+		// Loop through tags.
+		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
+			$loading = $tags->get_attribute( 'loading' );
+			$tags->set_attribute( 'data-mai-loading', $loading ?: 'lazy' );
+		}
+
+		// Get updated HTML.
+		$avatar = $tags->get_updated_html();
+
+		return $avatar;
 	}
 }

@@ -2,6 +2,8 @@
 
 namespace Mai\PerformanceImages;
 
+use WP_HTML_Tag_Processor;
+
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) exit;
 
@@ -19,12 +21,14 @@ class Images extends AbstractImages {
 	 * @return void
 	 */
 	protected function hooks(): void {
-		// Block image filters.
 		add_filter( 'render_block_core/cover',               [ $this, 'render_image_block' ], 99, 2 );
 		add_filter( 'render_block_core/image',               [ $this, 'render_image_block' ], 99, 2 );
 		add_filter( 'render_block_core/post-featured-image', [ $this, 'render_image_block' ], 99, 2 );
 		add_filter( 'render_block_core/media-text',          [ $this, 'render_media_text_block' ], 99, 2 );
 		add_filter( 'render_block_core/site-logo',           [ $this, 'render_site_logo_block' ], 99, 2 );
+
+		// No longer using, it's so small that it was always blurry.
+		// add_filter( 'get_avatar', [ $this, 'render_avatar' ], 99, 6 );
 	}
 
 	/**
@@ -203,66 +207,41 @@ class Images extends AbstractImages {
 	}
 
 	/**
-	 * Filters the content of a post featured image block.
+	 * Filters the avatar.
 	 *
-	 * @since 0.1.0
+	 * @since 0.4.0
 	 *
-	 * @param string $block_content The block content about to be appended.
-	 * @param array  $block         The full block, including name and attributes.
+	 * @param string|null $avatar      The avatar HTML.
+	 * @param mixed       $id_or_email The user ID or email address.
+	 * @param int         $size        The size of the avatar.
+	 * @param string      $default     The default avatar.
+	 * @param string      $alt         The alt text.
+	 * @param array       $args        The arguments.
 	 *
-	 * @return string
+	 * @return string|null
 	 */
-	public function render_post_featured_image_block( string $block_content = '', array $block = [] ): string {
-		// Bail if no content.
-		if ( ! $block_content ) {
-			return $block_content;
+	public function render_avatar( ?string $avatar, mixed $id_or_email, int $size, string $default, string $alt, array $args ): ?string {
+		// Bail if no avatar.
+		if ( ! $avatar ) {
+			return $avatar;
 		}
 
-		// Set properties.
-		$this->set_properties();
+		// Set width.
+		$width = $args['size'] ?? 100;
 
-		// Get alignment and width.
-		$align = $block['attrs']['align'] ?? null;
-		$width = $block['attrs']['width'] ?? null;
-
-		// Build args.
-		switch ( $align ) {
-			case 'full':
-				$args = [
-					'max_width' => 2400,
-					'sizes'     => [
-						'mobile'  => '100vw',
-						'tablet'  => $width ? $width . 'px' : '100vw',
-						'desktop' => $width ? $width . 'px' : '100vw',
-					],
-				];
-				break;
-			case 'wide':
-				$args = [
-					'max_width' => $this->wide_size * 2,
-					'sizes'     => [
-						'mobile'  => '90vw',
-						'tablet'  => $width ? $width . 'px' : '90vw',
-						'desktop' => $width ? $width . 'px' : '90vw',
-					],
-				];
-				break;
-			default:
-				$args = [
-					'max_width' => $this->desktop_breakpoint * 2,
-					'sizes'     => [
-						'mobile'  => '90vw',
-						'tablet'  => $width ? $width . 'px' : $this->tablet_breakpoint . 'px',
-						'desktop' => $width ? $width . 'px' : $this->desktop_breakpoint . 'px',
-					],
-				];
-		}
-
-		// Add image ID.
-		$args['image_id'] = get_post_thumbnail_id();
+		// Set args.
+		$args = [
+			'aspect_ratio' => '1/1',
+			'max_width'    => $width,
+			'sizes'        => [
+				'mobile'  => $width . 'px',
+				'tablet'  => $width . 'px',
+				'desktop' => $width . 'px',
+			],
+		];
 
 		// Process the image.
-		return $this->handle_image( $block_content, $args );
+		return $this->handle_image( $avatar, $args );
 	}
 
 	/**
