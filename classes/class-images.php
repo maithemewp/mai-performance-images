@@ -27,7 +27,7 @@ class Images extends AbstractImages {
 		add_filter( 'render_block_core/media-text',          [ $this, 'render_media_text_block' ], 99, 2 );
 		add_filter( 'render_block_core/site-logo',           [ $this, 'render_site_logo_block' ], 99, 2 );
 
-		// No longer using, it's so small that it was always blurry.
+		// This is so small that it's always blurry.
 		// add_filter( 'get_avatar', [ $this, 'render_avatar' ], 99, 6 );
 	}
 
@@ -223,6 +223,14 @@ class Images extends AbstractImages {
 	public function render_avatar( ?string $avatar, mixed $id_or_email, int $size, string $default, string $alt, array $args ): ?string {
 		// Bail if no avatar.
 		if ( ! $avatar ) {
+			return $avatar;
+		}
+
+		// Get src.
+		$src = $args['url'] ?? null;
+
+		// If not external, bail.
+		if ( ! $src || ! $this->is_external( $src ) ) {
 			return $avatar;
 		}
 
