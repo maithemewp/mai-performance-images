@@ -41,6 +41,7 @@ class ComposerStaticInitacfb92c4f968f557321ecf624876d544
         'Mai\\PerformanceImages\\MaiBlocks' => __DIR__ . '/../..' . '/classes/class-mai-blocks.php',
         'Mai\\PerformanceImages\\MaiEngine' => __DIR__ . '/../..' . '/classes/class-mai-engine.php',
         'Mai\\PerformanceImages\\Scheduler' => __DIR__ . '/../..' . '/classes/class-scheduler.php',
+        'Mai\\PerformanceImages\\Settings' => __DIR__ . '/../..' . '/classes/class-settings.php',
         'Mai\\PerformanceImages\\Updater' => __DIR__ . '/../..' . '/classes/class-updater.php',
     );
 
