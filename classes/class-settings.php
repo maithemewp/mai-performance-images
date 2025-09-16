@@ -165,7 +165,7 @@ class Settings {
 	 * @return void
 	 */
 	function attributes_callback() {
-		$attributes = $this->options['attributes'] ?? $this->defaults['attributes'] ?? true;
+		$attributes = $this->options['attributes'];
 		?>
 		<label>
 			<input type="checkbox" name="mai_performance_images[attributes]" value="1" <?php checked( $attributes, 1 ); ?> />
@@ -183,7 +183,7 @@ class Settings {
 	 * @return void
 	 */
 	function conversion_callback() {
-		$conversion = $this->options['conversion'] ?? $this->defaults['conversion'] ?? true;
+		$conversion = $this->options['conversion'];
 		?>
 		<label>
 			<input type="checkbox" name="mai_performance_images[conversion]" value="1" <?php checked( $conversion, 1 ); ?> />
@@ -201,7 +201,7 @@ class Settings {
 	 * @return void
 	 */
 	function quality_callback() {
-		$quality = $this->options['quality'] ?? $this->defaults['quality'] ?? 85;
+		$quality = $this->options['quality'];
 		?>
 		<input type="number" name="mai_performance_images[quality]" value="<?php echo esc_attr( $quality ); ?>" min="1" max="100" />
 		<p class="description"><?php _e( 'WebP image quality (1-100). Higher values mean better quality but larger file sizes. Default is 85.', 'mai-performance-images' ); ?></p>
@@ -220,14 +220,10 @@ class Settings {
 	function sanitize( $input ) {
 		$sanitized = [];
 
-		// Parse existing options and defaults.
-		$input = wp_parse_args( $input, $this->options );
-		$input = wp_parse_args( $input, $this->defaults );
-
-		// Boolean fields.
-		$sanitized['conversion'] = (bool) $input['conversion'];
-		$sanitized['attributes'] = (bool) $input['attributes'];
-		$sanitized['quality']    = max( 1, min( 100, (int) $input['quality'] ) );
+		// Sanitize. The boolean fields are not in the input array if they are not set (unchecked).
+		$sanitized['conversion'] = isset( $input['conversion'] ) ? rest_sanitize_boolean( $input['conversion'] ) : false;
+		$sanitized['attributes'] = isset( $input['attributes'] ) ? rest_sanitize_boolean( $input['attributes'] ) : false;
+		$sanitized['quality']    = isset( $input['quality'] ) ? max( 1, min( 100, (int) $input['quality'] ) ) : $this->defaults['quality'];
 
 		return $sanitized;
 	}
