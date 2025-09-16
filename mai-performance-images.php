@@ -4,7 +4,7 @@
  * Description:       Optimizes image delivery through automatic resizing and WebP conversion with static file caching.
  * Version:           0.5.0-beta.1
  * Requires at least: 6.7
- * Requires PHP:      8.2
+ * Requires PHP:      8.1
  * Author:            JiveDig
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
