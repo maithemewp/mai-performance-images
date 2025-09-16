@@ -30,6 +30,12 @@ final class ImageLoading {
 	 * @return void
 	 */
 	public function hooks() {
+		// Bail if attributes are disabled.
+		if ( ! is_attributes_enabled() ) {
+			return;
+		}
+
+		// Add hooks used for attributes.
 		add_action( 'enqueue_block_editor_assets',           [ $this, 'enqueue_block_editor_assets' ] );
 		add_filter( 'render_block_core/cover',               [ $this, 'render_loading_attribute' ], 10, 2 );
 		add_filter( 'render_block_core/image',               [ $this, 'render_loading_attribute' ], 10, 2 );
