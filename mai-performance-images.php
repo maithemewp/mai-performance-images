@@ -4,7 +4,7 @@
  * Description:       Optimizes image delivery through automatic resizing and WebP conversion with static file caching.
  * Version:           0.4.0
  * Requires at least: 6.7
- * Requires PHP:      8.0
+ * Requires PHP:      8.2
  * Author:            JiveDig
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -24,6 +24,7 @@ $images     = new Images();
 $loading    = new ImageLoading();
 $processor  = new ImageProcessor();
 $scheduler  = new Scheduler();
+$settings   = new Settings();
 $mai_blocks = new MaiBlocks();
 
 add_action( 'cli_init', __NAMESPACE__ . '\register_cli_command' );
@@ -116,3 +117,18 @@ register_deactivation_hook( __FILE__, function() {
 	$scheduler = new Scheduler();
 	$scheduler->clear_scheduled_events();
 } );
+
+/**
+ * Gets default options.
+ *
+ * @since 0.5.0
+ *
+ * @return array
+ */
+function get_default_options() {
+	return [
+		'attributes' => true,
+		'conversion' => true,
+		'quality'    => 85,
+	];
+}
