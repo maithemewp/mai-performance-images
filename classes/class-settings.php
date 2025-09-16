@@ -144,7 +144,7 @@ class Settings {
 			__( 'Image Quality', 'mai-performance-images' ), // title
 			[ $this, 'quality_callback' ], // callback
 			'mai-performance-images-section', // page
-			'mai_performance_images_quality' // section
+			'mai_performance_images_general' // section
 		);
 	}
 
@@ -171,7 +171,7 @@ class Settings {
 			<input type="checkbox" name="mai_performance_images[attributes]" value="1" <?php checked( $attributes, 1 ); ?> />
 			<?php _e( 'Enable lazy/eager/priority attributes for images', 'mai-performance-images' ); ?>
 		</label>
-		<p class="description"><?php _e( 'Adds block and Customizer settings for image loading.', 'mai-performance-images' ); ?></p>
+		<p class="description"><?php _e( 'Adds Customizer and block settings for image lazy/eager loading.', 'mai-performance-images' ); ?></p>
 		<?php
 	}
 
@@ -204,7 +204,7 @@ class Settings {
 		$quality = $this->options['quality'] ?? $this->defaults['quality'] ?? 85;
 		?>
 		<input type="number" name="mai_performance_images[quality]" value="<?php echo esc_attr( $quality ); ?>" min="1" max="100" />
-		<p class="description"><?php _e( 'WebP image quality (1-100). Higher values mean better quality but larger file sizes.', 'mai-performance-images' ); ?></p>
+		<p class="description"><?php _e( 'WebP image quality (1-100). Higher values mean better quality but larger file sizes. Default is 85.', 'mai-performance-images' ); ?></p>
 		<?php
 	}
 

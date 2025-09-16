@@ -19,8 +19,7 @@ Mai Performance Images handles image optimization in WordPress by:
 ## Requirements
 
 - WordPress 6.7+
-- PHP 8.0+
-- Imagick PHP extension
+- PHP 8.2+
 
 ## Extending the Plugin
 
