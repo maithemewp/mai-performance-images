@@ -20,7 +20,7 @@ class MaiEngine extends Images {
 	 *
 	 * @var bool
 	 */
-	protected $attributes_enabled = false;
+	protected $attributes_enabled;
 
 	/**
 	 * The conversion enabled.
@@ -29,7 +29,7 @@ class MaiEngine extends Images {
 	 *
 	 * @var bool
 	 */
-	protected $conversion_enabled = false;
+	protected $conversion_enabled;
 
 
 	/**
@@ -39,7 +39,7 @@ class MaiEngine extends Images {
 	 *
 	 * @var int
 	 */
-	protected $grid_entry_index = 0;
+	protected $grid_entry_index = 1;
 
 	/**
 	 * Add hooks.
