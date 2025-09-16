@@ -7,6 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
  * Mai Performance Images Scheduler class.
+ * This runs even if conversion is disabled to make sure the files are cleaned up.
  *
  * @since 0.1.0
  */
