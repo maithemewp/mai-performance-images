@@ -204,7 +204,7 @@ class Settings {
 		$quality = $this->options['quality'];
 		?>
 		<input type="number" name="mai_performance_images[quality]" value="<?php echo esc_attr( $quality ); ?>" min="1" max="100" />
-		<p class="description"><?php _e( 'WebP image quality (1-100). Higher values mean better quality but larger file sizes. Default is 85.', 'mai-performance-images' ); ?></p>
+		<p class="description"><?php _e( 'WebP image quality (1-100). Higher values mean better quality but larger file sizes. Default is 80. Changing this value will not affect existing images until they are regenerated 30 days after initial generation. Delete the `mai-performance-images` directory to force regeneration of all images.', 'mai-performance-images' ); ?></p>
 		<?php
 	}
 

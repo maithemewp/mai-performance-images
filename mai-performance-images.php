@@ -129,7 +129,7 @@ function get_default_options() {
 	return [
 		'attributes' => true,
 		'conversion' => true,
-		'quality'    => 85,
+		'quality'    => 80,
 	];
 }
 
