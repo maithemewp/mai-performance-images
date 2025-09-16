@@ -21,6 +21,11 @@ class Images extends AbstractImages {
 	 * @return void
 	 */
 	protected function hooks(): void {
+		// Bail if conversion is disabled.
+		if ( ! is_conversion_enabled() ) {
+			return;
+		}
+
 		add_filter( 'render_block_core/cover',               [ $this, 'render_image_block' ], 99, 2 );
 		add_filter( 'render_block_core/image',               [ $this, 'render_image_block' ], 99, 2 );
 		add_filter( 'render_block_core/post-featured-image', [ $this, 'render_image_block' ], 99, 2 );
