@@ -214,7 +214,7 @@ class MaiEngine extends Images {
 			$tags = new WP_HTML_Tag_Processor( $image );
 
 			// Loop through tags.
-			while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-scroll-logo' ] ) ) {
+			while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'page-header-image' ] ) ) {
 				// Check for loading attribute.
 				$loading = $tags->get_attribute( 'loading' );
 
