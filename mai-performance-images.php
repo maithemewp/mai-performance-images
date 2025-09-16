@@ -127,9 +127,10 @@ register_deactivation_hook( __FILE__, function() {
  */
 function get_default_options() {
 	return [
-		'attributes' => true,
-		'conversion' => true,
-		'quality'    => 80,
+		'attributes'     => true,
+		'conversion'     => true,
+		'quality'        => 80,
+		'cache_duration' => 30, // Days.
 	];
 }
 

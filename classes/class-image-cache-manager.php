@@ -38,7 +38,11 @@ final class ImageCacheManager {
 	 */
 	public function __construct() {
 		$this->logger  = Logger::get_instance();
-		$this->max_age = 30 * DAY_IN_SECONDS; // Default 30 days
+
+		// Get cache duration from settings.
+		$options        = get_plugin_options();
+		$cache_duration = $options['cache_duration'] ?? 30;
+		$this->max_age  = $cache_duration * DAY_IN_SECONDS;
 	}
 
 	/**
@@ -46,7 +50,7 @@ final class ImageCacheManager {
 	 *
 	 * @since 0.1.0
 	 *
-	 * @param int|null $max_age Optional. Maximum age in days. Default null (uses default 30 days).
+	 * @param int|null $max_age Optional. Maximum age in days. Default null (uses setting from admin).
 	 *
 	 * @return array {
 	 *     Cleanup results.

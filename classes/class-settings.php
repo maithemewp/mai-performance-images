@@ -96,6 +96,7 @@ class Settings {
 		// Set defaults/options.
 		$this->defaults = get_default_options();
 		$this->options  = get_option( 'mai_performance_images', $this->defaults );
+		$this->options  = wp_parse_args( $this->options, $this->defaults );
 
 		// Register setting.
 		register_setting(
@@ -146,6 +147,15 @@ class Settings {
 			'mai-performance-images-section', // page
 			'mai_performance_images_general' // section
 		);
+
+		// Cache Duration.
+		add_settings_field(
+			'cache_duration', // id
+			__( 'Cache Duration', 'mai-performance-images' ), // title
+			[ $this, 'cache_duration_callback' ], // callback
+			'mai-performance-images-section', // page
+			'mai_performance_images_general' // section
+		);
 	}
 
 	/**
@@ -155,7 +165,18 @@ class Settings {
 	 *
 	 * @return void
 	 */
-	function general_section_callback() {}
+	function general_section_callback() {
+		?>
+		<style>
+		.form-table:has(input[name="mai_performance_images[conversion]"]:not(:checked)) {
+			tr:has(input[name="mai_performance_images[quality]"]),
+			tr:has(input[name="mai_performance_images[cache_duration]"]) {
+				display: none;
+			}
+		}
+		</style>
+		<?php
+	}
 
 	/**
 	 * Attributes field callback.
@@ -189,7 +210,7 @@ class Settings {
 			<input type="checkbox" name="mai_performance_images[conversion]" value="1" <?php checked( $conversion, 1 ); ?> />
 			<?php _e( 'Enable image conversion to WebP', 'mai-performance-images' ); ?>
 		</label>
-		<p class="description"><?php _e( 'Images will be converted to appropriately sized WebP images.', 'mai-performance-images' ); ?></p>
+		<p class="description"><?php _e( 'Images will be converted to appropriately sized WebP images on the fly and stored in `wp-content/uploads/mai-performance-images` directory.', 'mai-performance-images' ); ?></p>
 		<?php
 	}
 
@@ -204,7 +225,22 @@ class Settings {
 		$quality = $this->options['quality'];
 		?>
 		<input type="number" name="mai_performance_images[quality]" value="<?php echo esc_attr( $quality ); ?>" min="1" max="100" />
-		<p class="description"><?php _e( 'WebP image quality (1-100). Higher values mean better quality but larger file sizes. Default is 80. Changing this value will not affect existing images until they are regenerated 30 days after initial generation. Delete the `mai-performance-images` directory to force regeneration of all images.', 'mai-performance-images' ); ?></p>
+		<p class="description"><?php _e( 'WebP image quality (1-100). Higher values mean better quality but larger file sizes. Default is 80. Changing this value will not affect existing images until they are regenerated after the cache duration expires. Delete the `mai-performance-images` directory to force regeneration of all images.', 'mai-performance-images' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Cache duration field callback.
+	 *
+	 * @since 0.5.0
+	 *
+	 * @return void
+	 */
+	function cache_duration_callback() {
+		$cache_duration = $this->options['cache_duration'];
+		?>
+		<input type="number" name="mai_performance_images[cache_duration]" value="<?php echo esc_attr( $cache_duration ); ?>" min="1" max="365" />
+		<p class="description"><?php _e( 'Number of days to keep cached images before they are automatically deleted and regenerated. Default is 30 days and max is 365 days. This helps manage disk space by removing old, unused images.', 'mai-performance-images' ); ?></p>
 		<?php
 	}
 
@@ -221,9 +257,10 @@ class Settings {
 		$sanitized = [];
 
 		// Sanitize. The boolean fields are not in the input array if they are not set (unchecked).
-		$sanitized['conversion'] = isset( $input['conversion'] ) ? rest_sanitize_boolean( $input['conversion'] ) : false;
-		$sanitized['attributes'] = isset( $input['attributes'] ) ? rest_sanitize_boolean( $input['attributes'] ) : false;
-		$sanitized['quality']    = isset( $input['quality'] ) ? max( 1, min( 100, (int) $input['quality'] ) ) : $this->defaults['quality'];
+		$sanitized['conversion']     = isset( $input['conversion'] ) ? rest_sanitize_boolean( $input['conversion'] ) : false;
+		$sanitized['attributes']     = isset( $input['attributes'] ) ? rest_sanitize_boolean( $input['attributes'] ) : false;
+		$sanitized['quality']        = isset( $input['quality'] ) ? max( 1, min( 100, (int) $input['quality'] ) ) : $this->defaults['quality'];
+		$sanitized['cache_duration'] = isset( $input['cache_duration'] ) ? max( 1, min( 365, (int) $input['cache_duration'] ) ) : $this->defaults['cache_duration'];
 
 		return $sanitized;
 	}
