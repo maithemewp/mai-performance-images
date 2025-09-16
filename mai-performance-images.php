@@ -132,3 +132,38 @@ function get_default_options() {
 		'quality'    => 85,
 	];
 }
+
+/**
+ * Gets plugin options.
+ *
+ * @since 0.5.0
+ *
+ * @return array
+ */
+function get_plugin_options() {
+	return get_option( 'mai_performance_images', get_default_options() );
+}
+
+/**
+ * Checks if attributes functionality is enabled.
+ *
+ * @since 0.5.0
+ *
+ * @return bool
+ */
+function is_attributes_enabled() {
+	$options = get_plugin_options();
+	return (bool) ( $options['attributes'] ?? true );
+}
+
+/**
+ * Checks if conversion functionality is enabled.
+ *
+ * @since 0.5.0
+ *
+ * @return bool
+ */
+function is_conversion_enabled() {
+	$options = get_plugin_options();
+	return (bool) ( $options['conversion'] ?? true );
+}

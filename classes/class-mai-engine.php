@@ -14,6 +14,25 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  */
 class MaiEngine extends Images {
 	/**
+	 * The attributes enabled.
+	 *
+	 * @since 0..0
+	 *
+	 * @var bool
+	 */
+	protected $attributes_enabled = false;
+
+	/**
+	 * The conversion enabled.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @var bool
+	 */
+	protected $conversion_enabled = false;
+
+
+	/**
 	 * The grid entry index.
 	 *
 	 * @since 0.1.0
@@ -30,6 +49,15 @@ class MaiEngine extends Images {
 	 * @return void
 	 */
 	protected function hooks(): void {
+		// Set props.
+		$this->attributes_enabled = is_attributes_enabled();
+		$this->conversion_enabled = is_conversion_enabled();
+
+		// Bail if nothing is enabled.
+		if ( ! $this->attributes_enabled && ! $this->conversion_enabled ) {
+			return;
+		}
+
 		/**
 		 * Get mai breakpoints.
 		 * @disregard P1010
@@ -42,12 +70,19 @@ class MaiEngine extends Images {
 		$this->content_size       = 800;
 		$this->wide_size          = 1200;
 
-		// Add hooks.
+		// Add hooks used for both attributes and conversion.
 		add_action( 'genesis_site_title',                      [ $this, 'before_logo' ], 0 );
 		add_filter( 'mai_page_header_img',                     [ $this, 'render_page_header_image' ], 999, 3 );
 		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'render_entry_image' ], 10, 3 );
 		add_filter( 'render_block_acf/mai-post-grid',          [ $this, 'render_block_entry_image' ], 99, 2 );
 		add_filter( 'render_block_acf/mai-term-grid',          [ $this, 'render_block_entry_image' ], 99, 2 );
+
+		// Bail if attributes are disabled.
+		if ( ! $this->attributes_enabled ) {
+			return;
+		}
+
+		// Add hooks used for attributes.
 		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'add_grid_attributes' ], 10, 2 );
 		add_filter( 'mai_content_archive_settings',            [ $this, 'add_archive_settings' ], 10, 2 );
 		add_filter( 'mai_single_content_settings',             [ $this, 'add_single_settings' ], 10, 2 );
@@ -74,6 +109,7 @@ class MaiEngine extends Images {
 
 	/**
 	 * Filters the custom logo.
+	 * Default logo already has eager loading from Mai Engine.
 	 *
 	 * @since 0.1.0
 	 *
@@ -82,24 +118,27 @@ class MaiEngine extends Images {
 	 * @return string
 	 */
 	public function custom_logo( string $html ): string {
-		/**
-		 * Set up tag processor.
-		 * @disregard P1008
-		 */
-		$tags  = new WP_HTML_Tag_Processor( $html );
-		$sizes = [];
+		// If conversion is enabled.
+		if ( $this->conversion_enabled ) {
+			/**
+			 * Set up tag processor.
+			 * @disregard P1008
+			 */
+			$tags  = new WP_HTML_Tag_Processor( $html );
+			$sizes = [];
 
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-logo' ] ) ) {
-			/** @disregard P1010 */
-			$tags->set_attribute( 'data-mai-image-id', \mai_get_logo_id() );
+			// Loop through tags.
+			while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-logo' ] ) ) {
+				/** @disregard P1010 */
+				$tags->set_attribute( 'data-mai-image-id', \mai_get_logo_id() );
 
-			// Get logo sizes.
-			$sizes = $tags->get_attribute( 'sizes' );
+				// Set sizes.
+				$sizes = $tags->get_attribute( 'sizes' );
+			}
+
+			// Get updated content.
+			$html = $tags->get_updated_html();
 		}
-
-		// Get updated content.
-		$html = $tags->get_updated_html();
 
 		/**
 		 * Set up tag processor.
@@ -109,35 +148,49 @@ class MaiEngine extends Images {
 
 		// Loop through tags.
 		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-scroll-logo' ] ) ) {
-			/** @disregard P1010 */
-			$tags->set_attribute( 'data-mai-image-id', \mai_get_scroll_logo_id() );
-			$tags->set_attribute( 'data-mai-loading', 'eager' );
+			// Set loading attributes if attributes are enabled.
+			if ( $this->attributes_enabled ) {
+				$tags->set_attribute( 'data-mai-loading', 'eager' );
+			}
+
+			// Set data-mai-image-id if conversion is enabled.
+			if ( $this->conversion_enabled ) {
+				/** @disregard P1010 */
+				$tags->set_attribute( 'data-mai-image-id', \mai_get_scroll_logo_id() );
+			}
 		}
 
 		// Get updated content.
 		$html = $tags->get_updated_html();
 
-		/**
-		 * Get logo width.
-		 * @disregard P1010
-		 */
-		$widths = \mai_get_option( 'logo-width', [] );
-		$widths = array_map( 'absint', $widths );
-		$width  = isset( $widths['desktop'] ) ? $widths['desktop'] : 0;
-		$width  = max( $width, 1 );
-		$sizes  = $sizes ?? $width . 'px';
+		// If conversion is enabled, handle the image.
+		if ( $this->conversion_enabled ) {
+			/**
+			 * Get logo width.
+			 * @disregard P1010
+			 */
+			$widths = \mai_get_option( 'logo-width', [] );
+			$widths = array_map( 'absint', $widths );
+			$width  = isset( $widths['desktop'] ) ? $widths['desktop'] : 0;
+			$width  = max( $width, 1 );
+			$sizes  = $sizes ?? $width . 'px';
 
-		$args = [
-			'max_images' => 0,
-			'max_width'  => $width * 2,
-			'sizes'      => [
-				'mobile'  => $sizes,
-				'tablet'  => $sizes,
-				'desktop' => $sizes,
-			],
-		];
+			// Set args.
+			$args = [
+				'max_images' => 0,
+				'max_width'  => $width * 2,
+				'sizes'      => [
+					'mobile'  => $sizes,
+					'tablet'  => $sizes,
+					'desktop' => $sizes,
+				],
+			];
 
-		return $this->handle_image( $html, $args );
+			// Handle the image.
+			$html = $this->handle_image( $html, $args );
+		}
+
+		return $html;
 	}
 
 	/**
@@ -152,45 +205,50 @@ class MaiEngine extends Images {
 	 * @return string
 	 */
 	public function render_page_header_image( string $image, int $image_id, string $image_size ): string {
-		/**
-		 * Set up tag processor.
-		 * @disregard P1008
-		 */
-		$tags = new WP_HTML_Tag_Processor( $image );
+		// Set loading attributes if attributes are enabled.
+		if ( $this->attributes_enabled ) {
+			/**
+			 * Set up tag processor.
+			 * @disregard P1008
+			 */
+			$tags = new WP_HTML_Tag_Processor( $image );
 
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-scroll-logo' ] ) ) {
-			/** @disregard P1010 */
-			// $tags->set_attribute( 'data-mai-image-id', $image_id );
+			// Loop through tags.
+			while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-scroll-logo' ] ) ) {
+				// Check for loading attribute.
+				$loading = $tags->get_attribute( 'loading' );
 
-			// Check for loading attribute.
-			$loading = $tags->get_attribute( 'loading' );
-
-			// If loading is not set, set to eager.
-			if ( ! $loading ) {
-				$tags->set_attribute( 'loading', 'eager' );
-				$tags->set_attribute( 'fetchpriority', 'high' );
-				$tags->set_attribute( 'decoding', 'sync' );
+				// If loading is not set, set to eager.
+				if ( ! $loading ) {
+					$tags->set_attribute( 'loading', 'eager' );
+					$tags->set_attribute( 'fetchpriority', 'high' );
+					$tags->set_attribute( 'decoding', 'sync' );
+				}
 			}
+
+			// Get updated content.
+			$image = $tags->get_updated_html();
+
+			// Handle the attributes.
+			$image = $this->handle_attributes( $image );
 		}
 
-		// Get updated content.
-		$image = $tags->get_updated_html();
+		// If conversion is enabled, handle the image.
+		if ( $this->conversion_enabled ) {
+			// Set args.
+			$args = [
+				'image_id'  => $image_id,
+				'max_width' => 2400,
+				'sizes'     => [
+					'mobile'  => '100vw',
+					'tablet'  => '100vw',
+					'desktop' => '100vw',
+				],
+			];
 
-		// Set args.
-		$args = [
-			'image_id'  => $image_id,
-			'max_width' => 2400,
-			'sizes'     => [
-				'mobile'  => '100vw',
-				'tablet'  => '100vw',
-				'desktop' => '100vw',
-			],
-		];
-
-		// Add the attributes.
-		$image = $this->handle_image( $image, $args );
-		$image = $this->handle_attributes( $image );
+			// Handle the image.
+			$image = $this->handle_image( $image, $args );
+		}
 
 		return $image;
 	}
@@ -226,19 +284,22 @@ class MaiEngine extends Images {
 			return $content;
 		}
 
-		/**
-		 * Set up tag processor.
-		 * @disregard P1008
-		 */
-		$tags = new WP_HTML_Tag_Processor( $content );
+		// Set data-mai-image-id if conversion is enabled.
+		if ( $this->conversion_enabled ) {
+			/**
+			 * Set up tag processor.
+			 * @disregard P1008
+			 */
+			$tags = new WP_HTML_Tag_Processor( $content );
 
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
-			$tags->set_attribute( 'data-mai-image-id', $image_id );
+			// Loop through tags.
+			while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
+				$tags->set_attribute( 'data-mai-image-id', $image_id );
+			}
+
+			// Get updated content.
+			$content = $tags->get_updated_html();
 		}
-
-		// Get updated content.
-		$content = $tags->get_updated_html();
 
 		// Return the content based on the context.
 		switch ( $args['params']['args']['context'] ) {
@@ -254,8 +315,12 @@ class MaiEngine extends Images {
 				break;
 		}
 
-		// Return the content with the final attributes.
-		return $this->handle_attributes( $content );
+		// If attributes are enabled, handle the attributes.
+		if ( $this->attributes_enabled ) {
+			$content = $this->handle_attributes( $content );
+		}
+
+		return $content;
 	}
 
 	/**
@@ -281,71 +346,79 @@ class MaiEngine extends Images {
 			return $content;
 		}
 
-		// Set index.
-		static $index = 0;
-		$index++;
+		// Set loading attributes if attributes are enabled.
+		if ( $this->attributes_enabled ) {
+			// Set index.
+			static $index = 0;
+			$index++;
 
-		// Get loading and count.
-		$loading = $data['image_loading'] ?? 'lazy';
-		$count   = $data['image_loading_count'] ?? null;
+			// Get loading and count.
+			$loading = $data['image_loading'] ?? 'lazy';
+			$count   = $data['image_loading_count'] ?? null;
 
-		// If not loading or index is greater than count, set to lazy.
-		if ( ! $loading || ( $count && $index > $count ) ) {
-			$loading = 'lazy';
-		}
-
-		// Set up tag processor.
-		$tags = new WP_HTML_Tag_Processor( $content );
-
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
-			// Add loading attribute.
-			$tags->set_attribute( 'loading', $loading );
-
-			// Switch loading attribute.
-			switch ( $loading ) {
-				// If eager, set fetchpriority to high.
-				case 'eager':
-					$tags->set_attribute( 'fetchpriority', 'high' );
-					$tags->set_attribute( 'decoding', 'sync' );
-					break;
-				// If lazy, set fetchpriority to low.
-				// We were sometimes seeing loading as lazy, but fetchpriority as high.
-				// This makes sure that doesn't happen.
-				case 'lazy':
-					$tags->set_attribute( 'fetchpriority', 'low' );
-					$tags->set_attribute( 'decoding', 'async' );
-					break;
+			// If not loading or index is greater than count, set to lazy.
+			if ( ! $loading || ( $count && $index > $count ) ) {
+				$loading = 'lazy';
 			}
+
+			// Set up tag processor.
+			$tags = new WP_HTML_Tag_Processor( $content );
+
+			// Loop through tags.
+			while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
+				// Add loading attribute.
+				$tags->set_attribute( 'loading', $loading );
+
+				// Switch loading attribute.
+				switch ( $loading ) {
+					// If eager, set fetchpriority to high.
+					case 'eager':
+						$tags->set_attribute( 'fetchpriority', 'high' );
+						$tags->set_attribute( 'decoding', 'sync' );
+						break;
+					// If lazy, set fetchpriority to low.
+					// We were sometimes seeing loading as lazy, but fetchpriority as high.
+					// This makes sure that doesn't happen.
+					case 'lazy':
+						$tags->set_attribute( 'fetchpriority', 'low' );
+						$tags->set_attribute( 'decoding', 'async' );
+						break;
+				}
+			}
+
+			// Get updated block content.
+			$content = $tags->get_updated_html();
 		}
 
-		// Get updated block content.
-		$content = $tags->get_updated_html();
+		// If conversion is enabled, handle the image.
+		if ( $this->conversion_enabled ) {
+			/** @disregard P1010 */
+			$columns     = array_reverse( \mai_get_breakpoint_columns( $data ) );
+			$position    = $data['image_position'] ?? null;
+			$orientation = $data['image_orientation'] ?? null;
+			$image_size  = $data['image_size'] ?? null;
+			$side        = $position && ( str_contains( $position, 'left' ) || str_contains( $position, 'right' ) ) ? 2 : 1;
 
-		/** @disregard P1010 */
-		$columns     = array_reverse( \mai_get_breakpoint_columns( $data ) );
-		$position    = $data['image_position'] ?? null;
-		$orientation = $data['image_orientation'] ?? null;
-		$image_size  = $data['image_size'] ?? null;
-		$side        = $position && ( str_contains( $position, 'left' ) || str_contains( $position, 'right' ) ) ? 2 : 1;
+			/** @disregard P1010 */
+			$ratio = $this->get_image_aspect_ratio( $orientation, $image_size );
 
-		/** @disregard P1010 */
-		$ratio = $this->get_image_aspect_ratio( $orientation, $image_size );
+			// Set args.
+			$image_args = [
+				'aspect_ratio' => $ratio,
+				'max_width'  => (int) ( 2400 / (int) $columns['lg'] / $side ),
+				'max_images' => 0, // Process all images in the archive.
+				'sizes'      => [
+					'mobile'  => (int) ( 100 / (int) $columns['sm'] ) . 'vw',
+					'tablet'  => (int) ( 100 / (int) $columns['md'] / $side ) . 'vw',
+					'desktop' => (int) ( 100 / (int) $columns['lg'] / $side ) . 'vw',
+				],
+			];
 
-		// Set args.
-		$image_args = [
-			'aspect_ratio' => $ratio,
-			'max_width'  => (int) ( 2400 / (int) $columns['lg'] / $side ),
-			'max_images' => 0, // Process all images in the archive.
-			'sizes'      => [
-				'mobile'  => (int) ( 100 / (int) $columns['sm'] ) . 'vw',
-				'tablet'  => (int) ( 100 / (int) $columns['md'] / $side ) . 'vw',
-				'desktop' => (int) ( 100 / (int) $columns['lg'] / $side ) . 'vw',
-			],
-		];
+			// Handle the image.
+			$content = $this->handle_image( $content, $image_args );
+		}
 
-		/** @disregard P1008 */
-		return $this->handle_image( $content, $image_args );
+		return $content;
 	}
 
 	/**
@@ -370,55 +443,63 @@ class MaiEngine extends Images {
 			return $content;
 		}
 
-		// Get loading.
-		$loading = $data['image_loading'] ?? 'lazy';
+		// Set loading attributes if attributes are enabled.
+		if ( $this->attributes_enabled ) {
+			// Get loading.
+			$loading = $data['image_loading'] ?? 'lazy';
 
-		// Setup tag processor.
-		$tags = new WP_HTML_Tag_Processor( $content );
+			// Setup tag processor.
+			$tags = new WP_HTML_Tag_Processor( $content );
 
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
-			// Add loading attribute.
-			$tags->set_attribute( 'loading', $loading );
+			// Loop through tags.
+			while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
+				// Add loading attribute.
+				$tags->set_attribute( 'loading', $loading );
 
-			// Switch loading attribute.
-			switch ( $loading ) {
-				// If eager, set fetchpriority to high.
-				case 'eager':
-					$tags->set_attribute( 'fetchpriority', 'high' );
-					$tags->set_attribute( 'decoding', 'sync' );
-					break;
-				// If lazy, set fetchpriority to low.
-				// We were sometimes seeing loading as lazy, but fetchpriority as high.
-				// This makes sure that doesn't happen.
-				case 'lazy':
-					$tags->set_attribute( 'fetchpriority', 'low' );
-					$tags->set_attribute( 'decoding', 'async' );
-					break;
+				// Switch loading attribute.
+				switch ( $loading ) {
+					// If eager, set fetchpriority to high.
+					case 'eager':
+						$tags->set_attribute( 'fetchpriority', 'high' );
+						$tags->set_attribute( 'decoding', 'sync' );
+						break;
+					// If lazy, set fetchpriority to low.
+					// We were sometimes seeing loading as lazy, but fetchpriority as high.
+					// This makes sure that doesn't happen.
+					case 'lazy':
+						$tags->set_attribute( 'fetchpriority', 'low' );
+						$tags->set_attribute( 'decoding', 'async' );
+						break;
+				}
 			}
+
+			// Get updated content.
+			$content = $tags->get_updated_html();
 		}
 
-		// Get updated content.
-		$content = $tags->get_updated_html();
+		// If conversion is enabled, handle the image.
+		if ( $this->conversion_enabled ) {
+			// Get image aspect ratio.
+			$orientation = $data['image_orientation'] ?? null;
+			$image_size  = $data['image_size'] ?? null;
+			$ratio       = $this->get_image_aspect_ratio( $orientation, $image_size );
 
-		// Get image aspect ratio.
-		$orientation = $data['image_orientation'] ?? null;
-		$image_size  = $data['image_size'] ?? null;
-		$ratio       = $this->get_image_aspect_ratio( $orientation, $image_size );
+			// Set args.
+			$image_args = [
+				'aspect_ratio' => $ratio,
+				'max_width'  => 1600,
+				'sizes'      => [
+					'mobile'  => '90vw',
+					'tablet'  => '80vw',
+					'desktop' => '70vw',
+				],
+			];
 
-		// Set args.
-		$image_args = [
-			'aspect_ratio' => $ratio,
-			'max_width'  => 1600,
-			'sizes'      => [
-				'mobile'  => '90vw',
-				'tablet'  => '80vw',
-				'desktop' => '70vw',
-			],
-		];
+			// Handle the image.
+			$content = $this->handle_image( $content, $image_args );
+		}
 
-		/** @disregard P1008 */
-		return $this->handle_image( $content, $image_args );
+		return $content;
 	}
 
 	/**
@@ -432,8 +513,15 @@ class MaiEngine extends Images {
 	 * @return string
 	 */
 	public function render_block_entry_image( string $block_content, array $block ): string {
-		// Reset the grid entry index.
-		$this->grid_entry_index = 1;
+		// Reset the grid entry index if attributes are enabled (needed for image_loading_count).
+		if ( $this->attributes_enabled ) {
+			$this->grid_entry_index = 1;
+		}
+
+		// Bail if conversion is disabled.
+		if ( ! $this->conversion_enabled ) {
+			return $block_content;
+		}
 
 		// Get ACF block data.
 		$data = $block['attrs']['data'] ?? [];
@@ -481,8 +569,10 @@ class MaiEngine extends Images {
 			],
 		];
 
-		/** @disregard P1008 */
-		return $this->handle_image( $block_content, $image_args );
+		// Handle the image.
+		$block_content = $this->handle_image( $block_content, $image_args );
+
+		return $block_content;
 	}
 
 	/**
