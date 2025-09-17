@@ -31,7 +31,6 @@ class MaiEngine extends Images {
 	 */
 	protected $conversion_enabled;
 
-
 	/**
 	 * The grid entry index.
 	 *
@@ -39,7 +38,7 @@ class MaiEngine extends Images {
 	 *
 	 * @var int
 	 */
-	protected $grid_entry_index = 1;
+	protected $grid_entry_index = 0;
 
 	/**
 	 * Add hooks.
@@ -88,6 +87,7 @@ class MaiEngine extends Images {
 		add_filter( 'mai_single_content_settings',             [ $this, 'add_single_settings' ], 10, 2 );
 		add_action( 'acf/init',                                [ $this, 'add_grid_block_field_group' ] );
 		add_filter( 'mai_grid_args',                           [ $this, 'add_grid_args' ] );
+		add_filter( 'genesis_markup_entries_open',             [ $this, 'reset_index_filter' ], 10, 2 );
 		add_action( 'mai_after_entry',                         [ $this, 'increment_index' ], 10, 2 );
 	}
 
@@ -513,11 +513,6 @@ class MaiEngine extends Images {
 	 * @return string
 	 */
 	public function render_block_entry_image( string $block_content, array $block ): string {
-		// Reset the grid entry index if attributes are enabled (needed for image_loading_count).
-		if ( $this->attributes_enabled ) {
-			$this->grid_entry_index = 1;
-		}
-
 		// Bail if conversion is disabled.
 		if ( ! $this->conversion_enabled ) {
 			return $block_content;
@@ -889,6 +884,29 @@ class MaiEngine extends Images {
 		$args['image_loading_count'] = \get_field( 'image_loading_count' );
 
 		return $args;
+	}
+
+	/**
+	 * Reset the grid entry index.
+	 *
+	 * @since 0.5.0
+	 *
+	 * @return void
+	 */
+	public function reset_index_filter( $content, $args ) {
+		$this->reset_index();
+		return $content;
+	}
+
+	/**
+	 * Reset the grid entry index.
+	 *
+	 * @since 0.5.0
+	 *
+	 * @return void
+	 */
+	public function reset_index(): void {
+		$this->grid_entry_index = 1;
 	}
 
 	/**
