@@ -665,7 +665,7 @@ class MaiEngine extends Images {
 	/**
 	 * Add archive settings.
 	 *
-	 * @since TBD
+	 * @since IDK
 	 *
 	 * @param array $settings The settings.
 	 * @param string $name The name.
@@ -735,7 +735,7 @@ class MaiEngine extends Images {
 	/**
 	 * Add single settings.
 	 *
-	 * @since TBD
+	 * @since IDK
 	 *
 	 * @param array $settings The settings.
 	 * @param string $name The name.
