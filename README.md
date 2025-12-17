@@ -21,6 +21,25 @@ Mai Performance Images handles image optimization in WordPress by:
 - WordPress 6.7+
 - PHP 8.2+
 
+## Development
+
+### Namespace Prefixing with Strauss
+
+This plugin uses [Strauss](https://github.com/BrianHenryIE/strauss) to prefix the `deliciousbrains/wp-background-processing` library to avoid namespace conflicts. The prefixed code is stored in the `vendor-prefixed/` directory.
+
+**After running `composer update`, you need to regenerate the prefixed dependencies:**
+
+```bash
+composer prefix-namespaces
+```
+
+This command will:
+1. Download the Strauss PHAR if needed
+2. Run Strauss to prefix the configured packages
+3. Regenerate the Composer autoloader
+
+**Note:** The `prefix-namespaces` script is automatically run after `composer install` and `composer update` when running in development mode (when dev dependencies are installed). If you're running `composer update --no-dev`, you'll need to manually run `composer prefix-namespaces` afterwards.
+
 ## Extending the Plugin
 
 ### Creating a Custom Image Handler

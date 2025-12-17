@@ -6,7 +6,11 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'Attribute' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Attribute.php',
+    'CURLStringFile' => $vendorDir . '/symfony/polyfill-php81/Resources/stubs/CURLStringFile.php',
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
+    'Deprecated' => $vendorDir . '/symfony/polyfill-php84/Resources/stubs/Deprecated.php',
+    'JsonException' => $vendorDir . '/symfony/polyfill-php73/Resources/stubs/JsonException.php',
     'Mai\\PerformanceImages\\AbstractImages' => $baseDir . '/classes/class-abstract-images.php',
     'Mai\\PerformanceImages\\BackgroundProcess' => $baseDir . '/classes/class-background-process.php',
     'Mai\\PerformanceImages\\CLI' => $baseDir . '/classes/class-cli.php',
@@ -21,4 +25,12 @@ return array(
     'Mai\\PerformanceImages\\Scheduler' => $baseDir . '/classes/class-scheduler.php',
     'Mai\\PerformanceImages\\Settings' => $baseDir . '/classes/class-settings.php',
     'Mai\\PerformanceImages\\Updater' => $baseDir . '/classes/class-updater.php',
+    'Normalizer' => $vendorDir . '/symfony/polyfill-intl-normalizer/Resources/stubs/Normalizer.php',
+    'PhpToken' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/PhpToken.php',
+    'ReflectionConstant' => $vendorDir . '/symfony/polyfill-php84/Resources/stubs/ReflectionConstant.php',
+    'ReturnTypeWillChange' => $vendorDir . '/symfony/polyfill-php81/Resources/stubs/ReturnTypeWillChange.php',
+    'Stringable' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
+    'UnhandledMatchError' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/UnhandledMatchError.php',
+    'ValueError' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/ValueError.php',
+    '©' => $vendorDir . '/symfony/cache/Traits/ValueWrapper.php',
 );
