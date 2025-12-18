@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Mai Performance Images
  * Description:       Optimizes image delivery through automatic resizing and WebP conversion with static file caching.
- * Version:           0.5.1
+ * Version:           0.5.0
  * Requires at least: 6.7
  * Requires PHP:      8.1
  * Author:            JiveDig
@@ -26,6 +26,7 @@ $processor  = new ImageProcessor();
 $scheduler  = new Scheduler();
 $settings   = new Settings();
 $mai_blocks = new MaiBlocks();
+$updater    = new Updater();
 
 add_action( 'cli_init', __NAMESPACE__ . '\register_cli_command' );
 /**
