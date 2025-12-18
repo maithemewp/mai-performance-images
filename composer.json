@@ -16,7 +16,7 @@
         "yahnis-elsts/plugin-update-checker": "^5.5"
     },
     "require-dev": {
-        "brianhenryie/strauss": "^0.22.1"
+        "brianhenryie/strauss": "^0.26.2"
     },
     "autoload": {
         "psr-4": {
