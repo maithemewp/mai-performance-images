@@ -11,12 +11,12 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
     );
 
     public static $prefixLengthsPsr4 = array (
-        'M' => 
+        'M' =>
         array (
             'Mai\\PerformanceImages\\dependencies\\' => 35,
             'Mai\\PerformanceImages\\' => 22,
         ),
-        'I' => 
+        'I' =>
         array (
             'Intervention\\Image\\' => 19,
             'Intervention\\Gif\\' => 17,
@@ -24,19 +24,19 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
     );
 
     public static $prefixDirsPsr4 = array (
-        'Mai\\PerformanceImages\\dependencies\\' => 
+        'Mai\\PerformanceImages\\dependencies\\' =>
         array (
             0 => __DIR__ . '/../..' . '/classes/dependencies',
         ),
-        'Mai\\PerformanceImages\\' => 
+        'Mai\\PerformanceImages\\' =>
         array (
             0 => __DIR__ . '/../..' . '/classes',
         ),
-        'Intervention\\Image\\' => 
+        'Intervention\\Image\\' =>
         array (
             0 => __DIR__ . '/..' . '/intervention/image/src',
         ),
-        'Intervention\\Gif\\' => 
+        'Intervention\\Gif\\' =>
         array (
             0 => __DIR__ . '/..' . '/intervention/gif/src',
         ),
