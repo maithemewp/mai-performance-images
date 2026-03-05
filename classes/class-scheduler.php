@@ -44,6 +44,12 @@ final class Scheduler {
 		// Register the action hook.
 		add_action( 'mai_performance_images_cleanup_cache', [ $this, 'cleanup_cache' ] );
 
+		// If conversion is disabled and no cached files exist, unschedule and bail.
+		if ( ! is_conversion_enabled() && ! $this->cache_manager->get_cache_file_count() ) {
+			$this->clear_scheduled_events();
+			return;
+		}
+
 		// Schedule the event if not already scheduled.
 		if ( ! wp_next_scheduled( 'mai_performance_images_cleanup_cache' ) ) {
 			wp_schedule_event( time(), 'daily', 'mai_performance_images_cleanup_cache' );

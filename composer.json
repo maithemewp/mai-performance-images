@@ -59,7 +59,8 @@
         ],
         "post-autoload-dump": [
             "@download-strauss",
-            "@php bin/strauss.phar include-autoloader"
+            "@php bin/strauss.phar include-autoloader",
+            "@php bin/ensure-autoload-aliases.php"
         ]
     },
     "scripts-no-dev": {

@@ -46,6 +46,7 @@ class Settings {
 	function hooks() {
 		add_action( 'admin_menu', [ $this, 'add_menu_item' ], 12 );
 		add_action( 'admin_init', [ $this, 'init' ] );
+		add_action( 'wp_ajax_mai_performance_images_clear_cache', [ $this, 'ajax_clear_cache' ] );
 		add_filter( 'plugin_action_links_mai-performance-images/mai-performance-images.php', [ $this, 'add_plugin_links' ], 10, 4 );
 	}
 
@@ -156,6 +157,15 @@ class Settings {
 			'mai-performance-images-section', // page
 			'mai_performance_images_general' // section
 		);
+
+		// Cache Management.
+		add_settings_field(
+			'cache_management', // id
+			__( 'Cache', 'mai-performance-images' ), // title
+			[ $this, 'cache_management_callback' ], // callback
+			'mai-performance-images-section', // page
+			'mai_performance_images_general' // section
+		);
 	}
 
 	/**
@@ -242,6 +252,105 @@ class Settings {
 		<input type="number" name="mai_performance_images[cache_duration]" value="<?php echo esc_attr( $cache_duration ); ?>" min="1" max="365" />
 		<p class="description"><?php _e( 'Number of days to keep cached images before they are automatically deleted and regenerated. Default is 30 days and max is 365 days. This helps manage disk space by removing old, unused images.', 'mai-performance-images' ); ?></p>
 		<?php
+	}
+
+	/**
+	 * Cache management field callback.
+	 *
+	 * @since 0.6.0
+	 *
+	 * @return void
+	 */
+	function cache_management_callback() {
+		$cache_manager = new ImageCacheManager();
+		$count         = $cache_manager->get_cache_file_count();
+		?>
+		<div id="mai-performance-images-cache-management">
+			<p>
+				<span id="mai-performance-images-cache-count">
+					<?php
+					printf(
+						/* translators: %s: number of cached files. */
+						_n( '%s cached file.', '%s cached files.', $count, 'mai-performance-images' ),
+						number_format_i18n( $count )
+					);
+					?>
+				</span>
+			</p>
+			<?php if ( $count ) { ?>
+				<p>
+					<button type="button" class="button" id="mai-performance-images-clear-cache">
+						<?php _e( 'Clear Cached Images', 'mai-performance-images' ); ?>
+					</button>
+					<span id="mai-performance-images-clear-status"></span>
+				</p>
+			<?php } ?>
+		</div>
+		<script>
+		document.addEventListener( 'DOMContentLoaded', function() {
+			var button = document.getElementById( 'mai-performance-images-clear-cache' );
+			if ( ! button ) return;
+
+			button.addEventListener( 'click', function() {
+				if ( ! confirm( '<?php echo esc_js( __( 'Are you sure you want to delete all cached images? They will be regenerated as needed.', 'mai-performance-images' ) ); ?>' ) ) {
+					return;
+				}
+
+				var status = document.getElementById( 'mai-performance-images-clear-status' );
+				button.disabled = true;
+				status.textContent = '<?php echo esc_js( __( 'Clearing...', 'mai-performance-images' ) ); ?>';
+
+				fetch( ajaxurl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({
+						action: 'mai_performance_images_clear_cache',
+						nonce: '<?php echo wp_create_nonce( 'mai_performance_images_clear_cache' ); ?>'
+					})
+				})
+				.then( function( response ) { return response.json(); })
+				.then( function( data ) {
+					if ( data.success ) {
+						document.getElementById( 'mai-performance-images-cache-count' ).textContent = data.data.message;
+						status.textContent = '';
+						button.remove();
+					} else {
+						status.textContent = data.data.message || '<?php echo esc_js( __( 'Error clearing cache.', 'mai-performance-images' ) ); ?>';
+						button.disabled = false;
+					}
+				})
+				.catch( function() {
+					status.textContent = '<?php echo esc_js( __( 'Error clearing cache.', 'mai-performance-images' ) ); ?>';
+					button.disabled = false;
+				});
+			});
+		});
+		</script>
+		<?php
+	}
+
+	/**
+	 * AJAX handler for clearing the cache.
+	 *
+	 * @since 0.6.0
+	 *
+	 * @return void
+	 */
+	function ajax_clear_cache() {
+		if ( ! current_user_can( 'manage_options' ) || ! check_ajax_referer( 'mai_performance_images_clear_cache', 'nonce', false ) ) {
+			wp_send_json_error( [ 'message' => __( 'Unauthorized.', 'mai-performance-images' ) ] );
+		}
+
+		$cache_manager = new ImageCacheManager();
+		$removed       = $cache_manager->clear_all();
+
+		wp_send_json_success( [
+			'message' => sprintf(
+				/* translators: %s: number of files removed. */
+				_n( '%s file removed.', '%s files removed.', $removed, 'mai-performance-images' ),
+				number_format_i18n( $removed )
+			),
+		] );
 	}
 
 	/**

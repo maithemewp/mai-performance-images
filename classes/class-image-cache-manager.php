@@ -46,6 +46,81 @@ final class ImageCacheManager {
 	}
 
 	/**
+	 * Gets the cache directory path.
+	 *
+	 * @since 0.6.0
+	 *
+	 * @return string
+	 */
+	public function get_cache_dir(): string {
+		$uploads = wp_get_upload_dir();
+		return $uploads['basedir'] . '/mai-performance-images';
+	}
+
+	/**
+	 * Gets the number of cached WebP files.
+	 *
+	 * @since 0.6.0
+	 *
+	 * @return int
+	 */
+	public function get_cache_file_count(): int {
+		$cache_dir = $this->get_cache_dir();
+
+		if ( ! is_dir( $cache_dir ) ) {
+			return 0;
+		}
+
+		$count    = 0;
+		$iterator = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator( $cache_dir, \RecursiveDirectoryIterator::SKIP_DOTS )
+		);
+
+		foreach ( $iterator as $file ) {
+			if ( $file->isFile() && 'webp' === $file->getExtension() ) {
+				$count++;
+			}
+		}
+
+		return $count;
+	}
+
+	/**
+	 * Clears all cached files and removes the cache directory.
+	 *
+	 * @since 0.6.0
+	 *
+	 * @return int Number of files removed.
+	 */
+	public function clear_all(): int {
+		$cache_dir = $this->get_cache_dir();
+
+		if ( ! is_dir( $cache_dir ) ) {
+			return 0;
+		}
+
+		$removed  = 0;
+		$iterator = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator( $cache_dir, \RecursiveDirectoryIterator::SKIP_DOTS ),
+			\RecursiveIteratorIterator::CHILD_FIRST
+		);
+
+		foreach ( $iterator as $file ) {
+			if ( $file->isDir() ) {
+				@rmdir( $file->getPathname() );
+			} elseif ( @unlink( $file->getPathname() ) ) {
+				$removed++;
+			}
+		}
+
+		@rmdir( $cache_dir );
+
+		$this->logger->info( sprintf( 'Cleared all cache files. Removed %d files.', $removed ) );
+
+		return $removed;
+	}
+
+	/**
 	 * Clean up old cache files.
 	 *
 	 * @since 0.1.0
@@ -65,11 +140,16 @@ final class ImageCacheManager {
 			$this->max_age = $max_age * DAY_IN_SECONDS;
 		}
 
-		// Get uploads directory.
-		$uploads = wp_get_upload_dir();
-
 		// Get cache directory.
-		$cache_dir = $uploads['basedir'] . '/mai-performance-images';
+		$cache_dir = $this->get_cache_dir();
+
+		// Bail if cache directory doesn't exist.
+		if ( ! is_dir( $cache_dir ) ) {
+			return [
+				'removed' => 0,
+				'skipped' => 0,
+			];
+		}
 
 		// Initialize counters.
 		$removed = 0;
