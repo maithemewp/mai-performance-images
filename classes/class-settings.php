@@ -387,8 +387,10 @@ class Settings {
 	 * @return array associative array of plugin action links.
 	 */
 	function add_plugin_links( $actions, $plugin_file, $plugin_data, $context ) {
-		$actions['settings'] = sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'options-general.php?page=mai-performance-images' ) ), __( 'Settings', 'mai-performance-images' ) );
+		$custom = [
+			'settings' => sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'options-general.php?page=mai-performance-images' ) ), __( 'Settings', 'mai-performance-images' ) ),
+		];
 
-		return $actions;
+		return array_merge( $custom, $actions );
 	}
 }

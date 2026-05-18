@@ -1,0 +1,323 @@
+<?php
+/**
+ * Object for getting typed values from composer.json.
+ *
+ * Use this for dependencies. Use ProjectComposerPackage for the primary composer.json.
+ */
+
+namespace BrianHenryIE\Strauss\Composer;
+
+use BrianHenryIE\Strauss\Files\FileWithDependency;
+use BrianHenryIE\Strauss\Helpers\FileSystem;
+use Composer\Composer;
+use Composer\Factory;
+use Composer\IO\NullIO;
+use Composer\Util\Platform;
+use Exception;
+
+/**
+ * @phpstan-type AutoloadKeyArray array{files?:array<string>, "classmap"?:array<string>, "psr-4"?:array<string,string|array<string>>, "exclude_from_classmap"?:array<string>}
+ * @phpstan-type ComposerConfigArray array{vendor-dir?:string}
+ * @phpstan-type ComposerJsonArray array{name?:string, type?:string, license?:string, require?:array<string,string>, autoload?:AutoloadKeyArray, config?:ComposerConfigArray, repositories?:array<mixed>, provide?:array<string,string>}
+ * @see \Composer\Config::merge()
+ */
+class ComposerPackage
+{
+    /**
+     * The composer.json file as parsed by Composer.
+     *
+     * @see Factory::create
+     *
+     * @var Composer
+     */
+    protected Composer $composer;
+
+    /**
+     * The name of the project in composer.json.
+     *
+     * e.g. brianhenryie/my-project
+     *
+     * @var string
+     */
+    protected string $packageName;
+
+    /**
+     * Virtual packages and meta packages do not have a composer.json.
+     * Some packages are installed in a different directory name than their package name.
+     *
+     * @var ?string
+     */
+    protected ?string $relativePath = null;
+
+    /**
+     * Packages can be symlinked from outside the current project directory.
+     *
+     * TODO: When could a package _not_ have an absolute path? Virtual packages, ext-*...
+     */
+    protected ?string $packageAbsolutePath = null;
+
+    /**
+     * The discovered files, classmap, psr0 and psr4 autoload keys discovered (as parsed by Composer).
+     *
+     * @var AutoloadKeyArray
+     */
+    protected array $autoload = [];
+
+    /**
+     * The names in the composer.json's "requires" field (without versions).
+     *
+     * @var string[]
+     */
+    protected array $requiresNames = [];
+
+    protected string $license;
+
+    /**
+     * Should the package be copied to the vendor-prefixed/target directory? Default: true.
+     */
+    protected bool $isCopy = true;
+    /**
+     * Has the package been copied to the vendor-prefixed/target directory? False until the package is copied.
+     */
+    protected bool $didCopy = false;
+    /**
+     * Should the package be deleted from the vendor directory? Default: false.
+     */
+    protected bool $isDelete = false;
+    /**
+     * Has the package been deleted from the vendor directory? False until the package is deleted.
+     */
+    protected bool $didDelete = false;
+
+    /**
+     * List of files found in the package directory.
+     *
+     * @var FileWithDependency[]
+     */
+    protected array $files;
+
+    /**
+     * @param string $absolutePath The absolute path to composer.json
+     * @param ?array{files?:array<string>, classmap?:array<string>, psr?:array<string,string|array<string>>} $overrideAutoload Optional configuration to replace the package's own autoload definition with
+     *                                    another which Strauss can use.
+     * @return ComposerPackage
+     * @throws Exception
+     */
+    public static function fromFile(string $absolutePath, ?array $overrideAutoload = null): ComposerPackage
+    {
+        $composer = Factory::create(new NullIO(), $absolutePath, true);
+
+        return new ComposerPackage($composer, $overrideAutoload);
+    }
+
+    /**
+     * This is used for virtual packages, which don't have a composer.json.
+     *
+     * @param ComposerJsonArray $jsonArray composer.json decoded to array
+     * @param ?AutoloadKeyArray $overrideAutoload New autoload rules to replace the existing ones.
+     * @throws Exception
+     */
+    public static function fromComposerJsonArray(array $jsonArray, ?array $overrideAutoload = null): ComposerPackage
+    {
+        $factory = new Factory();
+        $io = new NullIO();
+        $composer = $factory->createComposer($io, $jsonArray, true);
+
+        return new ComposerPackage($composer, $overrideAutoload);
+    }
+
+    /**
+     * Create a PHP object to represent a composer package.
+     *
+     * @param Composer $composer
+     * @param ?AutoloadKeyArray $overrideAutoload Optional configuration to replace the package's own autoload definition with another which Strauss can use.
+     * @throws Exception
+     */
+    public function __construct(Composer $composer, ?array $overrideAutoload = null)
+    {
+        $this->composer = $composer;
+
+        $this->packageName = $composer->getPackage()->getName();
+
+        $composerJsonFileAbsolute = $composer->getConfig()->getConfigSource()->getName();
+
+        $composerAbsoluteDirectoryPath = realpath(dirname($composerJsonFileAbsolute));
+        if (false !== $composerAbsoluteDirectoryPath) {
+            $composerAbsoluteDirectoryPath = FileSystem::normalizeDirSeparator($composerAbsoluteDirectoryPath);
+            $this->packageAbsolutePath = $composerAbsoluteDirectoryPath . '/';
+        }
+        $composerAbsoluteDirectoryPath = $composerAbsoluteDirectoryPath ?: FileSystem::normalizeDirSeparator(dirname($composerJsonFileAbsolute));
+
+        $currentWorkingDirectory = getcwd();
+        if ($currentWorkingDirectory === false) {
+            /**
+             * @see Platform::getCwd()
+             */
+            throw new Exception('Could not determine working directory. Please comment out ~'.__LINE__.' in ' . __FILE__.' and see does it work regardless.');
+        }
+        $currentWorkingDirectory = FileSystem::normalizeDirSeparator($currentWorkingDirectory);
+
+        /** @var string $vendorAbsoluteDirectoryPath */
+        $vendorAbsoluteDirectoryPath = $this->composer->getConfig()->get('vendor-dir');
+        if (file_exists($vendorAbsoluteDirectoryPath . '/' . $this->packageName)) {
+            $this->relativePath = $this->packageName;
+            $this->packageAbsolutePath = FileSystem::normalizeDirSeparator(realpath($vendorAbsoluteDirectoryPath . '/' . $this->packageName)) . '/';
+        // If the package is symlinked, the path will be outside the working directory.
+        } elseif (0 !== strpos($composerAbsoluteDirectoryPath, $currentWorkingDirectory) && 1 === preg_match('/.*[\/\\\\]([^\/\\\\]*[\/\\\\][^\/\\\\]*)[\/\\\\][^\/\\\\]*/', $vendorAbsoluteDirectoryPath, $output_array)) {
+            $this->relativePath = $output_array[1];
+        } elseif (1 === preg_match('/.*[\/\\\\]([^\/\\\\]+[\/\\\\][^\/\\\\]+)[\/\\\\]composer.json/', $composerJsonFileAbsolute, $output_array)) {
+        // Not every package gets installed to a folder matching its name (crewlabs/unsplash).
+            $this->relativePath = $output_array[1];
+        }
+
+        if (!is_null($overrideAutoload)) {
+            $composer->getPackage()->setAutoload($overrideAutoload);
+        }
+
+        $this->autoload = $composer->getPackage()->getAutoload();
+
+        foreach ($composer->getPackage()->getRequires() as $_name => $packageLink) {
+            $this->requiresNames[] = $packageLink->getTarget();
+        }
+
+        // Try to get the license from the package's composer.json, assume proprietary (all rights reserved!).
+        $this->license = !empty($composer->getPackage()->getLicense())
+            ? implode(',', $composer->getPackage()->getLicense())
+            : 'proprietary?';
+    }
+
+    /**
+     * Composer package project name.
+     *
+     * vendor/project-name
+     *
+     * @return string
+     */
+    public function getPackageName(): string
+    {
+        return $this->packageName;
+    }
+
+    /**
+     * Is this relative to vendor?
+     */
+    public function getRelativePath(): ?string
+    {
+        return is_null($this->relativePath) ? null : FileSystem::normalizeDirSeparator($this->relativePath) . '/';
+    }
+
+    public function getPackageAbsolutePath(): ?string
+    {
+        return $this->packageAbsolutePath;
+    }
+
+    /**
+     *
+     * e.g. ['psr-4' => [ 'BrianHenryIE\Project' => 'src' ]]
+     * e.g. ['psr-4' => [ 'BrianHenryIE\Project' => ['src','lib] ]]
+     * e.g. ['classmap' => [ 'src', 'lib' ]]
+     * e.g. ['files' => [ 'lib', 'functions.php' ]]
+     *
+     * @return AutoloadKeyArray
+     */
+    public function getAutoload(): array
+    {
+        return $this->autoload;
+    }
+
+    /**
+     * The names of the packages in the composer.json's "requires" field (without version).
+     *
+     * Excludes PHP, ext-*, since we won't be copying or prefixing them.
+     *
+     * @return string[]
+     */
+    public function getRequiresNames(): array
+    {
+        // Unset PHP, ext-*.
+        $removePhpExt = function ($element) {
+            return !( 0 === strpos($element, 'ext') || 'php' === $element );
+        };
+
+        return array_filter($this->requiresNames, $removePhpExt);
+    }
+
+    public function getLicense():string
+    {
+        return $this->license;
+    }
+
+    /**
+     * Should the file be copied? (defaults to yes)
+     */
+    public function setCopy(bool $isCopy): void
+    {
+        $this->isCopy = $isCopy;
+    }
+
+    /**
+     * Should the file be copied? (defaults to yes)
+     */
+    public function isCopy(): bool
+    {
+        return $this->isCopy;
+    }
+
+    /**
+     * Has the file been copied? (defaults to no)
+     */
+    public function setDidCopy(bool $didCopy): void
+    {
+        $this->didCopy = $didCopy;
+    }
+
+    /**
+     * Has the file been copied? (defaults to no)
+     */
+    public function didCopy(): bool
+    {
+        return $this->didCopy;
+    }
+
+    /**
+     * Should the file be deleted? (defaults to no)
+     */
+    public function setDelete(bool $isDelete): void
+    {
+        $this->isDelete = $isDelete;
+    }
+
+    /**
+     * Should the file be deleted? (defaults to no)
+     */
+    public function isDoDelete(): bool
+    {
+        return $this->isDelete;
+    }
+
+    /**
+     * Has the file been deleted? (defaults to no)
+     */
+    public function setDidDelete(bool $didDelete): void
+    {
+        $this->didDelete = $didDelete;
+    }
+
+    /**
+     * Has the file been deleted? (defaults to no)
+     */
+    public function didDelete(): bool
+    {
+        return $this->didDelete;
+    }
+
+    public function addFile(FileWithDependency $file): void
+    {
+        $this->files[$file->getPackageRelativePath()] = $file;
+    }
+
+    public function getFile(string $path): ?FileWithDependency
+    {
+        return $this->files[$path] ?? null;
+    }
+}
