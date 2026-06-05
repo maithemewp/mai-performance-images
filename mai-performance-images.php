@@ -19,6 +19,13 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // Include vendor files.
 require_once __DIR__ . '/vendor/autoload.php';
 
+// Strauss-prefixed runtime dependencies live outside Composer's generated
+// autoloader so they load no matter how vendor/ is (re)dumped — including the
+// prod-only (--no-dev) dump that ships in the plugin zip.
+if ( file_exists( __DIR__ . '/vendor-prefixed/autoload.php' ) ) {
+	require_once __DIR__ . '/vendor-prefixed/autoload.php';
+}
+
 // Initialize image handling with dependency injection.
 $images     = new Images();
 $loading    = new ImageLoading();

@@ -52,5 +52,32 @@ mix-manifest.json
 .npm/
 .eslintcache
 
-# Strauss
+# vendor/ is committed (prod-only) so plugin updates apply without
+# `composer install`. Allowlist approach: everything in vendor is ignored
+# except the autoloader, composer's own files, and each explicitly-named
+# UNPREFIXED production package. Strauss-prefixed deps live in vendor-prefixed/.
+/vendor/*
+!/vendor/autoload.php
+!/vendor/composer/
+!/vendor/intervention/
+!/vendor/yahnis-elsts/
+# Auto-regenerates with the current git ref, so tracking it dirties
+# the tree after every commit.
+/vendor/composer/installed.php
+# Strauss (dev-only) pulls composer/composer + its deps, which physically
+# nest under vendor/composer/. They're dev tooling, absent from a --no-dev
+# install, and must not ship — re-ignore them under the composer/ allowlist.
+/vendor/composer/ca-bundle/
+/vendor/composer/class-map-generator/
+/vendor/composer/composer/
+/vendor/composer/metadata-minifier/
+/vendor/composer/pcre/
+/vendor/composer/semver/
+/vendor/composer/spdx-licenses/
+/vendor/composer/xdebug-handler/
+
+# Strauss-prefixed runtime dependencies (committed; ship without a build step).
+!/vendor-prefixed/
+
+# Strauss binary self-downloads via the composer scripts.
 bin/strauss.phar
