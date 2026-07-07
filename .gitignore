@@ -81,3 +81,4 @@ mix-manifest.json
 
 # Strauss binary self-downloads via the composer scripts.
 bin/strauss.phar
+.githooks/

@@ -3,6 +3,9 @@
     "description": "Optimizes image delivery through automatic resizing and WebP conversion with static file caching.",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
+    "repositories": [
+        { "type": "vcs", "url": "https://github.com/maithemewp/deployable-guard" }
+    ],
     "authors": [
         {
             "name": "JiveDig",
@@ -16,7 +19,8 @@
         "yahnis-elsts/plugin-update-checker": "^5.5"
     },
     "require-dev": {
-        "brianhenryie/strauss": "^0.26.2"
+        "brianhenryie/strauss": "^0.26.2",
+        "maithemewp/deployable-guard": "^1"
     },
     "autoload": {
         "psr-4": {
@@ -52,11 +56,13 @@
         ],
         "post-install-cmd": [
             "@download-strauss",
-            "@prefix-namespaces"
+            "@prefix-namespaces",
+            "@php vendor/bin/deployable-guard install-hook"
         ],
         "post-update-cmd": [
             "@download-strauss",
-            "@prefix-namespaces"
+            "@prefix-namespaces",
+            "@php vendor/bin/deployable-guard install-hook"
         ]
     },
     "scripts-no-dev": {

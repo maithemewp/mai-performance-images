@@ -51,7 +51,7 @@
                 "issues": "https://github.com/deliciousbrains/wp-background-processing/issues",
                 "source": "https://github.com/deliciousbrains/wp-background-processing/tree/1.4.0"
             },
-            "install-path": "../deliciousbrains/wp-background-processing"
+            "install-path": "../../vendor-prefixed/deliciousbrains/wp-background-processing/"
         }
     },
     "dev": false,
