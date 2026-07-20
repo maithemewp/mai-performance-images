@@ -4,7 +4,7 @@
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
     "repositories": [
-        { "type": "vcs", "url": "https://github.com/maithemewp/deployable-guard" }
+        { "type": "vcs", "url": "https://github.com/bizbudding/deployable-guard" }
     ],
     "authors": [
         {
@@ -20,7 +20,7 @@
     },
     "require-dev": {
         "brianhenryie/strauss": "^0.26.2",
-        "maithemewp/deployable-guard": "^1"
+        "bizbudding/deployable-guard": "^1"
     },
     "autoload": {
         "psr-4": {
@@ -54,19 +54,18 @@
             "@php bin/strauss.phar",
             "@composer dump-autoload --no-dev"
         ],
+        "install-git-hooks": [
+            "sh -c 'test -f vendor/bin/deployable-guard && php vendor/bin/deployable-guard install-hook || true'"
+        ],
         "post-install-cmd": [
             "@download-strauss",
             "@prefix-namespaces",
-            "@php vendor/bin/deployable-guard install-hook"
+            "@install-git-hooks"
         ],
         "post-update-cmd": [
             "@download-strauss",
             "@prefix-namespaces",
-            "@php vendor/bin/deployable-guard install-hook"
+            "@install-git-hooks"
         ]
-    },
-    "scripts-no-dev": {
-        "post-install-cmd": [],
-        "post-update-cmd": []
     }
 }
