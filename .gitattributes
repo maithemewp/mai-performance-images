@@ -1,0 +1,3 @@
+# Keep internal files out of the plugin zip GitHub builds for updates.
+
+/bin export-ignore
