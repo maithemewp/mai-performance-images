@@ -71,9 +71,11 @@ class MaiBlocks extends Images {
 			 */
 			$tags = new WP_HTML_Tag_Processor( $block_content );
 
-			// Loop through tags.
+			// Loop through tags. Written as the real attribute rather than a note for
+			// a later pass, so WordPress sees it while building the tag.
 			while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
-				$tags->set_attribute( 'data-mai-loading', 'lazy' );
+				$tags->set_attribute( 'loading', 'lazy' );
+				$tags->set_attribute( 'decoding', 'async' );
 			}
 
 			// Get updated content.

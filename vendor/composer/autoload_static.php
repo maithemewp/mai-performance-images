@@ -52,6 +52,8 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
         'Mai\\PerformanceImages\\ImageLoading' => __DIR__ . '/../..' . '/classes/class-image-loading.php',
         'Mai\\PerformanceImages\\ImageProcessor' => __DIR__ . '/../..' . '/classes/class-image-processor.php',
         'Mai\\PerformanceImages\\Images' => __DIR__ . '/../..' . '/classes/class-images.php',
+        'Mai\\PerformanceImages\\LoadingAttributes' => __DIR__ . '/../..' . '/classes/class-loading-attributes.php',
+        'Mai\\PerformanceImages\\LoadingBudget' => __DIR__ . '/../..' . '/classes/class-loading-budget.php',
         'Mai\\PerformanceImages\\Logger' => __DIR__ . '/../..' . '/classes/class-logger.php',
         'Mai\\PerformanceImages\\MaiBlocks' => __DIR__ . '/../..' . '/classes/class-mai-blocks.php',
         'Mai\\PerformanceImages\\MaiEngine' => __DIR__ . '/../..' . '/classes/class-mai-engine.php',

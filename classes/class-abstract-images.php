@@ -194,30 +194,7 @@ abstract class AbstractImages {
 
 		// Loop through tags.
 		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
-			$loading  = $tags->get_attribute( 'data-mai-loading' );
-			$attr     = $tags->get_attribute( 'data-mai-image' );
-
-			// If loading attribute.
-			if ( $loading ) {
-				// Remove the data-mai-loading attribute.
-				$tags->remove_attribute( 'data-mai-loading' );
-
-				// Set the loading attribute.
-				$tags->set_attribute( 'loading', $loading );
-
-				// If eager, set fetchpriority to high.
-				if ( 'eager' === $loading ) {
-					$tags->set_attribute( 'fetchpriority', 'high' );
-					$tags->set_attribute( 'decoding', 'sync' );
-				}
-				// Otherwise set fetchpriority to low.
-				// We were sometimes seeing loading as lazy, but fetchpriority as high.
-				// This makes sure that doesn't happen.
-				else {
-					$tags->set_attribute( 'fetchpriority', 'low' );
-					$tags->set_attribute( 'decoding', 'async' );
-				}
-			}
+			$attr = $tags->get_attribute( 'data-mai-image' );
 
 			// If attributes.
 			if ( $attr ) {

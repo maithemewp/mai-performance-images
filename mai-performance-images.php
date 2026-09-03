@@ -27,6 +27,9 @@ if ( file_exists( __DIR__ . '/vendor-prefixed/autoload.php' ) ) {
 }
 
 // Initialize image handling with dependency injection.
+// LoadingAttributes is deliberately a single instance. It holds the page's image
+// count and its one high-priority slot, so a second copy would count twice.
+$attributes = new LoadingAttributes();
 $images     = new Images();
 $loading    = new ImageLoading();
 $processor  = new ImageProcessor();

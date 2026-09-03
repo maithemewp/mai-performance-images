@@ -15,6 +15,8 @@ return array(
     'Mai\\PerformanceImages\\ImageLoading' => $baseDir . '/classes/class-image-loading.php',
     'Mai\\PerformanceImages\\ImageProcessor' => $baseDir . '/classes/class-image-processor.php',
     'Mai\\PerformanceImages\\Images' => $baseDir . '/classes/class-images.php',
+    'Mai\\PerformanceImages\\LoadingAttributes' => $baseDir . '/classes/class-loading-attributes.php',
+    'Mai\\PerformanceImages\\LoadingBudget' => $baseDir . '/classes/class-loading-budget.php',
     'Mai\\PerformanceImages\\Logger' => $baseDir . '/classes/class-logger.php',
     'Mai\\PerformanceImages\\MaiBlocks' => $baseDir . '/classes/class-mai-blocks.php',
     'Mai\\PerformanceImages\\MaiEngine' => $baseDir . '/classes/class-mai-engine.php',

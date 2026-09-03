@@ -41,6 +41,18 @@ class MaiEngine extends Images {
 	protected $grid_entry_index = 0;
 
 	/**
+	 * The current grid block's args, or null when we are not inside one.
+	 *
+	 * Captured when the grid opens, because the image loading decision is made
+	 * while WordPress builds each entry image and the args are not available there.
+	 *
+	 * @since 0.7.0
+	 *
+	 * @var array|null
+	 */
+	protected $grid_args = null;
+
+	/**
 	 * Add hooks.
 	 *
 	 * @since 0.1.0
@@ -82,7 +94,7 @@ class MaiEngine extends Images {
 		}
 
 		// Add hooks used for attributes.
-		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'add_grid_attributes' ], 10, 2 );
+		add_filter( 'mai_performance_images_grid_loading',     [ $this, 'filter_grid_loading' ], 10, 1 );
 		add_filter( 'mai_content_archive_settings',            [ $this, 'add_archive_settings' ], 10, 2 );
 		add_filter( 'mai_single_content_settings',             [ $this, 'add_single_settings' ], 10, 2 );
 		add_action( 'acf/init',                                [ $this, 'add_grid_block_field_group' ] );
@@ -148,10 +160,8 @@ class MaiEngine extends Images {
 
 		// Loop through tags.
 		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-scroll-logo' ] ) ) {
-			// Set loading attributes if attributes are enabled.
-			if ( $this->attributes_enabled ) {
-				$tags->set_attribute( 'data-mai-loading', 'eager' );
-			}
+			// Loading comes from LoadingAttributes, which declines the high-priority
+			// slot for a scroll logo rather than claiming it.
 
 			// Set data-mai-image-id if conversion is enabled.
 			if ( $this->conversion_enabled ) {
@@ -205,30 +215,10 @@ class MaiEngine extends Images {
 	 * @return string
 	 */
 	public function render_page_header_image( string $image, int $image_id, string $image_size ): string {
-		// Set loading attributes if attributes are enabled.
+		// Loading, fetchpriority and decoding are decided in LoadingAttributes,
+		// while WordPress is still building the tag. Setting them here would arrive
+		// after WordPress has already decided whether the image gets sizes="auto".
 		if ( $this->attributes_enabled ) {
-			/**
-			 * Set up tag processor.
-			 * @disregard P1008
-			 */
-			$tags = new WP_HTML_Tag_Processor( $image );
-
-			// Loop through tags.
-			while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'page-header-image' ] ) ) {
-				// Check for loading attribute.
-				$loading = $tags->get_attribute( 'loading' );
-
-				// If loading is not set, set to eager.
-				if ( ! $loading ) {
-					$tags->set_attribute( 'loading', 'eager' );
-					$tags->set_attribute( 'fetchpriority', 'high' );
-					$tags->set_attribute( 'decoding', 'sync' );
-				}
-			}
-
-			// Get updated content.
-			$image = $tags->get_updated_html();
-
 			// Handle the attributes.
 			$image = $this->handle_attributes( $image );
 		}
@@ -346,49 +336,9 @@ class MaiEngine extends Images {
 			return $content;
 		}
 
-		// Set loading attributes if attributes are enabled.
-		if ( $this->attributes_enabled ) {
-			// Set index.
-			static $index = 0;
-			$index++;
-
-			// Get loading and count.
-			$loading = $data['image_loading'] ?? 'lazy';
-			$count   = $data['image_loading_count'] ?? null;
-
-			// If not loading or index is greater than count, set to lazy.
-			if ( ! $loading || ( $count && $index > $count ) ) {
-				$loading = 'lazy';
-			}
-
-			// Set up tag processor.
-			$tags = new WP_HTML_Tag_Processor( $content );
-
-			// Loop through tags.
-			while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
-				// Add loading attribute.
-				$tags->set_attribute( 'loading', $loading );
-
-				// Switch loading attribute.
-				switch ( $loading ) {
-					// If eager, set fetchpriority to high.
-					case 'eager':
-						$tags->set_attribute( 'fetchpriority', 'high' );
-						$tags->set_attribute( 'decoding', 'sync' );
-						break;
-					// If lazy, set fetchpriority to low.
-					// We were sometimes seeing loading as lazy, but fetchpriority as high.
-					// This makes sure that doesn't happen.
-					case 'lazy':
-						$tags->set_attribute( 'fetchpriority', 'low' );
-						$tags->set_attribute( 'decoding', 'async' );
-						break;
-				}
-			}
-
-			// Get updated block content.
-			$content = $tags->get_updated_html();
-		}
+		// Loading, fetchpriority and decoding come from LoadingAttributes, which
+		// reads the same image_loading and image_loading_count settings this used to
+		// read, while WordPress is still building the tag rather than afterwards.
 
 		// If conversion is enabled, handle the image.
 		if ( $this->conversion_enabled ) {
@@ -443,39 +393,8 @@ class MaiEngine extends Images {
 			return $content;
 		}
 
-		// Set loading attributes if attributes are enabled.
-		if ( $this->attributes_enabled ) {
-			// Get loading.
-			$loading = $data['image_loading'] ?? 'lazy';
-
-			// Setup tag processor.
-			$tags = new WP_HTML_Tag_Processor( $content );
-
-			// Loop through tags.
-			while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
-				// Add loading attribute.
-				$tags->set_attribute( 'loading', $loading );
-
-				// Switch loading attribute.
-				switch ( $loading ) {
-					// If eager, set fetchpriority to high.
-					case 'eager':
-						$tags->set_attribute( 'fetchpriority', 'high' );
-						$tags->set_attribute( 'decoding', 'sync' );
-						break;
-					// If lazy, set fetchpriority to low.
-					// We were sometimes seeing loading as lazy, but fetchpriority as high.
-					// This makes sure that doesn't happen.
-					case 'lazy':
-						$tags->set_attribute( 'fetchpriority', 'low' );
-						$tags->set_attribute( 'decoding', 'async' );
-						break;
-				}
-			}
-
-			// Get updated content.
-			$content = $tags->get_updated_html();
-		}
+		// Loading, fetchpriority and decoding come from LoadingAttributes, which
+		// reads the same image_loading setting this used to read.
 
 		// If conversion is enabled, handle the image.
 		if ( $this->conversion_enabled ) {
@@ -590,76 +509,41 @@ class MaiEngine extends Images {
 	}
 
 	/**
-	 * Add attributes to entry image link.
-	 * We can't add these attributes in the render_block filter
-	 * because the new block args are not available yet.
+	 * Answers the loading value for an entry image inside a grid block.
 	 *
-	 * @since 0.1.0
+	 * A grid is the one case where nothing at the image level can work out the
+	 * answer. The block carries its own Image Loading setting and its own count, and
+	 * which entry we are on is only knowable while the grid is rendering. So the
+	 * grid answers, and LoadingAttributes asks.
 	 *
-	 * @param string $content The existing content.
-	 * @param array  $args    The layout args.
+	 * @since 0.7.0
+	 *
+	 * @param string $loading The current loading value.
 	 *
 	 * @return string
 	 */
-	public function add_grid_attributes( string $content, array $args ): string {
-		$data = isset( $args['params']['args'] ) ? $args['params']['args'] : null;
-
-		// Bail if no data.
-		if ( ! $data ) {
-			return $content;
+	public function filter_grid_loading( string $loading ): string {
+		// Bail if we are not inside a grid block.
+		if ( ! $this->grid_args ) {
+			return $loading;
 		}
 
-		// Get context.
-		$context = $args['params']['args']['context'] ?? null;
+		$setting = (string) ( $this->grid_args['image_loading'] ?? '' );
 
-		// Bail if not a block.
-		if ( 'block' !== $context ) {
-			return $content;
+		// Bail if the block made no explicit choice.
+		if ( ! in_array( $setting, [ 'lazy', 'eager' ], true ) ) {
+			return $loading;
 		}
 
-		// Get loading and count.
-		$loading = $data['image_loading'] ?? 'lazy';
-		$count   = $data['image_loading_count'] ?? null;
+		// Eager applies to the first N entries, and to all of them when the count is
+		// empty, which is what the setting's own description promises.
+		$count = absint( $this->grid_args['image_loading_count'] ?? 0 );
 
-		// Bail if no loading.
-		if ( ! $loading ) {
-			return $content;
+		if ( 'eager' === $setting && $count && $this->grid_entry_index > $count ) {
+			return 'lazy';
 		}
 
-		// If count is over the index, force lazy loading.
-		if ( $count && $count < $this->grid_entry_index ) {
-			$loading = 'lazy';
-		}
-
-		// Set up tag processor.
-		$tags = new WP_HTML_Tag_Processor( $content );
-
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
-			// Add loading attribute.
-			$tags->set_attribute( 'loading', $loading );
-
-			// Switch loading attribute.
-			switch ( $loading ) {
-				// If eager, set fetchpriority to high.
-				case 'eager':
-					$tags->set_attribute( 'fetchpriority', 'high' );
-					$tags->set_attribute( 'decoding', 'sync' );
-					break;
-				// If lazy, set fetchpriority to low.
-				// We were sometimes seeing loading as lazy, but fetchpriority as high.
-				// This makes sure that doesn't happen.
-				case 'lazy':
-					$tags->set_attribute( 'fetchpriority', 'low' );
-					$tags->set_attribute( 'decoding', 'async' );
-					break;
-			}
-		}
-
-		// Get updated block content.
-		$content = $tags->get_updated_html();
-
-		return $content;
+		return $setting;
 	}
 
 	/**
@@ -895,6 +779,14 @@ class MaiEngine extends Images {
 	 */
 	public function reset_index_filter( $content, $args ) {
 		$this->reset_index();
+
+		// Capture the grid's args while they are still in scope. By the time each
+		// entry image is built these are gone, and that is where the loading
+		// decision now happens.
+		$data = $args['params']['args'] ?? null;
+
+		$this->grid_args = ( $data && 'block' === ( $data['context'] ?? null ) ) ? (array) $data : null;
+
 		return $content;
 	}
 

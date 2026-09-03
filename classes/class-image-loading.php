@@ -42,7 +42,6 @@ final class ImageLoading {
 		add_filter( 'render_block_core/post-featured-image', [ $this, 'render_loading_attribute' ], 10, 2 );
 		add_filter( 'render_block_core/media-text',          [ $this, 'render_loading_attribute' ], 10, 2 );
 		add_filter( 'render_block_core/site-logo',           [ $this, 'render_loading_attribute' ], 10, 2 );
-		add_filter( 'get_avatar',                            [ $this, 'render_avatar_loading_attribute' ], 10, 2 );
 	}
 
 	/**
@@ -74,12 +73,12 @@ final class ImageLoading {
 	 * @return string The block content.
 	 */
 	public function render_loading_attribute( $block_content, $block ) {
-		// Get the img loading attribute.
-		$default = 'lazy';
-		$loading = $block['attrs']['imgLoading'] ?? $default;
+		// Get the img loading attribute. An empty value is the editor's "Default",
+		// which hands the decision to LoadingAttributes rather than forcing lazy.
+		$loading = $block['attrs']['imgLoading'] ?? '';
 
-		// Bail if no loading attribute is set.
-		if ( ! $loading ) {
+		// Bail if the editor made no explicit choice.
+		if ( ! in_array( $loading, [ 'lazy', 'eager' ], true ) ) {
 			return $block_content;
 		}
 
@@ -100,8 +99,10 @@ final class ImageLoading {
 
 		// Loop through tags.
 		while ( $tags->next_tag( $args ) ) {
-			// Add loading attribute.
-			$tags->set_attribute( 'data-mai-loading', $loading );
+			// Write the real attribute, not a note for a later pass. WordPress reads
+			// an existing loading value while it builds the tag, which is what lets a
+			// lazy image still pick up sizes="auto".
+			$tags->set_attribute( 'loading', $loading );
 		}
 
 		// Get updated block content.
@@ -110,29 +111,4 @@ final class ImageLoading {
 		return $block_content;
 	}
 
-	/**
-	 * Render the avatar loading attribute.
-	 *
-	 * @since 0.4.0
-	 *
-	 * @param string $avatar The avatar HTML.
-	 * @param mixed  $id_or_email The user ID or email address.
-	 *
-	 * @return string The avatar HTML.
-	 */
-	public function render_avatar_loading_attribute( $avatar, $id_or_email ) {
-		// Set up tag processor.
-		$tags = new \WP_HTML_Tag_Processor( $avatar );
-
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
-			$loading = $tags->get_attribute( 'loading' );
-			$tags->set_attribute( 'data-mai-loading', $loading ?: 'lazy' );
-		}
-
-		// Get updated HTML.
-		$avatar = $tags->get_updated_html();
-
-		return $avatar;
-	}
 }
