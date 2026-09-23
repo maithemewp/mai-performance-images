@@ -83,7 +83,7 @@ function remove_conversion_leftovers(): void {
 
 	delete_site_transient( 'mai_performance_images_processor_process_lock' );
 
-	update_option( 'mai_performance_images_conversion_removed', MAI_PERFORMANCE_IMAGES_VERSION, false );
+	update_option( 'mai_performance_images_conversion_removed', MAI_PERFORMANCE_IMAGES_VERSION );
 }
 
 /**

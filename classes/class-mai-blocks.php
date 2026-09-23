@@ -38,6 +38,10 @@ final class MaiBlocks {
 	 * @return string The block content.
 	 */
 	public function render_block_post_preview( string $block_content, array $block ): string {
+		if ( ! is_attributes_enabled() ) {
+			return $block_content;
+		}
+
 		$tags = new WP_HTML_Tag_Processor( $block_content );
 
 		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {

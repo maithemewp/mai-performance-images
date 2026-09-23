@@ -19,6 +19,8 @@ if ( ! $wp_phpunit_dir ) {
 
 require_once $wp_phpunit_dir . '/includes/functions.php';
 
+require_once __DIR__ . '/stubs.php';
+
 tests_add_filter(
 	'muplugins_loaded',
 	static function () {

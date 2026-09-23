@@ -92,10 +92,6 @@ final class LoadingAttributes {
 	 * @return void
 	 */
 	private function hooks(): void {
-		if ( ! is_attributes_enabled() ) {
-			return;
-		}
-
 		add_filter( 'wp_get_loading_optimization_attributes', [ $this, 'filter_loading_attributes' ], 10, 4 );
 
 		// Shortcodes run at 11 and WordPress's pass over the content at 12. This runs
@@ -182,8 +178,9 @@ final class LoadingAttributes {
 		$attr    = is_array( $attr ) ? $attr : [];
 		$context = (string) $context;
 
-		// Iframes keep WordPress's own behavior.
-		if ( 'img' !== $tag_name ) {
+		// Iframes keep WordPress's own behavior, and so does everything when the
+		// setting is off.
+		if ( 'img' !== $tag_name || ! is_attributes_enabled() ) {
 			return $attrs;
 		}
 
@@ -220,21 +217,28 @@ final class LoadingAttributes {
 		}
 
 		$loading = (string) ( $attr['loading'] ?? '' );
+		$counted = ! empty( $attr['decoding'] );
+
+		// Somebody marked this as the page's main image. WordPress honors that, so
+		// this does too.
+		if ( 'high' === $fetchpriority ) {
+			return $counted ? $this->budget->keep( 'eager', 'high' ) : $this->budget->take_high();
+		}
 
 		// Every answer this class gives while a tag is built sets decoding too. So a
 		// loading value without decoding was chosen elsewhere, by a block or by an
 		// entry inside post content, and has not spent its slot yet.
 		if ( in_array( $loading, [ 'lazy', 'eager' ], true ) ) {
-			return empty( $attr['decoding'] ) ? $this->budget->take( $loading ) : $this->budget->keep( $loading, $fetchpriority );
+			return $counted ? $this->budget->keep( $loading, $fetchpriority, $attr ) : $this->budget->take( $loading, $attr );
 		}
 
 		$loading = $this->get_entry_loading( $attr );
 
 		if ( $loading ) {
-			return $this->budget->take( $loading );
+			return $this->budget->take( $loading, $attr );
 		}
 
-		return $this->budget->next();
+		return $this->budget->next( $attr );
 	}
 
 	/**
@@ -275,10 +279,14 @@ final class LoadingAttributes {
 	/**
 	 * Whether WordPress will ask about this image again in a pass over the content.
 	 *
-	 * Mirrors the check in wp_get_loading_optimization_attributes(), with one
-	 * addition: an image built by a shortcode reports the_content as its context,
-	 * but it is built before WordPress's pass at priority 12, so it is asked again
-	 * too.
+	 * Mirrors the check in wp_get_loading_optimization_attributes(), with two
+	 * additions:
+	 *
+	 * 1. An image built by a shortcode reports the_content as its context, but it
+	 *    is built before WordPress's pass at priority 12, so it is asked again too.
+	 * 2. Mai's template parts, content areas and descriptions, and block theme
+	 *    templates, render blocks first and run WordPress's pass at the end, the
+	 *    same order as the_content but without it.
 	 *
 	 * @since 0.7.0
 	 *
@@ -298,6 +306,36 @@ final class LoadingAttributes {
 
 		foreach ( [ 'widget_text_content', 'widget_block_content' ] as $filter ) {
 			if ( $filter !== $context && doing_filter( $filter ) ) {
+				return true;
+			}
+		}
+
+		return $this->inside_content_renderer();
+	}
+
+	/**
+	 * Whether a function that renders content and then runs WordPress's pass over
+	 * it is running.
+	 *
+	 * Neither function has a hook around it, so this looks up the call stack. It is
+	 * only reached for images built outside the_content and widgets. Reaching
+	 * wp_filter_content_tags() first means this is that pass, not the build.
+	 *
+	 * @since 0.7.0
+	 *
+	 * @return bool
+	 */
+	private function inside_content_renderer(): bool {
+		foreach ( debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS, 40 ) as $frame ) {
+			if ( isset( $frame['class'] ) || ! isset( $frame['function'] ) ) {
+				continue;
+			}
+
+			if ( 'wp_filter_content_tags' === $frame['function'] ) {
+				return false;
+			}
+
+			if ( in_array( $frame['function'], [ 'mai_get_processed_content', 'get_the_block_template_html' ], true ) ) {
 				return true;
 			}
 		}

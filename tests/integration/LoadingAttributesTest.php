@@ -144,9 +144,47 @@ final class LoadingAttributesTest extends TestCase {
 		$this->assertIsArray( wp_get_loading_optimization_attributes( 'img', [ 'width' => 1, 'height' => 1 ], 'the_content' ) );
 	}
 
-	public function test_turning_the_setting_off_leaves_wordpress_in_charge(): void {
+
+	public function test_a_hero_above_a_grid_in_a_template_part_gets_high_priority(): void {
+		$html = mai_get_processed_content( $this->static_image( 1 ) . '<!-- wp:mpi-test/grid {"count":4} /-->' );
+
+		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
+	}
+
+	public function test_an_image_marked_high_keeps_it_and_loads_right_away(): void {
+		$images = implode( '', array_map( fn() => wp_get_attachment_image( $this->create_image(), 'full', false, [ 'class' => 'x' ] ), range( 1, 3 ) ) );
+		$hero   = wp_get_attachment_image( $this->create_image(), 'full', false, [ 'fetchpriority' => 'high' ] );
+		$after  = wp_get_attachment_image( $this->create_image(), 'full' );
+
+		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'eager+high', 'lazy' ], $this->loading( $images . $hero . $after ) );
+	}
+
+	public function test_an_image_marked_high_in_the_content_is_not_lazy(): void {
+		$html = $this->the_content( $this->static_image( 1, 'fetchpriority="high"' ) . $this->static_image( 2 ) );
+
+		$this->assertSame( [ 'eager+high', 'eager' ], $this->loading( $html ) );
+	}
+
+	public function test_a_small_icon_never_takes_high_priority(): void {
+		$html = $this->the_content( '<img src="https://example.org/icon.png" width="32" height="32" alt="">' . $this->static_image( 1 ) );
+
+		$this->assertSame( [ 'eager', 'eager+high' ], $this->loading( $html ) );
+	}
+
+	public function test_nothing_changes_when_the_setting_is_off(): void {
 		update_option( 'mai_performance_images', [ 'attributes' => false ] );
 
-		$this->assertFalse( \Mai\PerformanceImages\is_attributes_enabled() );
+		$core = [ 'decoding' => 'async', 'loading' => 'lazy' ];
+
+		$this->assertSame( $core, LoadingAttributes::instance()->filter_loading_attributes( $core, 'img', [ 'width' => 100, 'height' => 100 ], 'wp_get_attachment_image' ) );
+
+		$block = '<!-- wp:image {"imgLoading":"eager"} --><figure class="wp-block-image">' . $this->static_image( 1, 'loading="lazy"' ) . '</figure><!-- /wp:image -->';
+		$this->assertSame( 'lazy', $this->images( do_blocks( $block ) )[0]['loading'] );
+	}
+
+	public function test_the_post_preview_block_lazy_loads_its_images(): void {
+		$html = apply_filters( 'render_block_acf/mai-post-preview', wp_get_attachment_image( $this->create_image(), 'full' ), [ 'blockName' => 'acf/mai-post-preview' ] );
+
+		$this->assertSame( [ 'lazy' ], $this->loading( $html ) );
 	}
 }

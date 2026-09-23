@@ -126,16 +126,18 @@ final class LoadingBudget {
 	 *
 	 * @since 0.7.0
 	 *
+	 * @param array $attr The attributes for the tag, for its width and height.
+	 *
 	 * @return array
 	 */
-	public function next(): array {
+	public function next( array $attr = [] ): array {
 		$this->counted++;
 
 		if ( $this->counted > $this->get_eager_count() ) {
 			return $this->lazy();
 		}
 
-		return $this->eager();
+		return $this->eager( $attr );
 	}
 
 	/**
@@ -148,17 +150,39 @@ final class LoadingBudget {
 	 * @since 0.7.0
 	 *
 	 * @param string $loading Either 'eager' or 'lazy'.
+	 * @param array  $attr    The attributes for the tag, for its width and height.
 	 *
 	 * @return array
 	 */
-	public function take( string $loading ): array {
+	public function take( string $loading, array $attr = [] ): array {
 		if ( 'eager' !== $loading ) {
 			return $this->lazy();
 		}
 
 		$this->counted++;
 
-		return $this->eager();
+		return $this->eager( $attr );
+	}
+
+	/**
+	 * Returns the attributes for an image already marked high priority.
+	 *
+	 * Somebody chose it as the page's main image, so it keeps high priority, loads
+	 * right away, and spends a slot. WordPress honors the same choice.
+	 *
+	 * @since 0.7.0
+	 *
+	 * @return array
+	 */
+	public function take_high(): array {
+		$this->counted++;
+		$this->high_used = true;
+
+		return [
+			'loading'       => 'eager',
+			'fetchpriority' => 'high',
+			'decoding'      => 'sync',
+		];
 	}
 
 	/**
@@ -173,10 +197,11 @@ final class LoadingBudget {
 	 *
 	 * @param string $loading       Either 'eager' or 'lazy'.
 	 * @param string $fetchpriority The fetchpriority already on the image, if any.
+	 * @param array  $attr          The attributes for the tag, for its width and height.
 	 *
 	 * @return array
 	 */
-	public function keep( string $loading, string $fetchpriority ): array {
+	public function keep( string $loading, string $fetchpriority, array $attr = [] ): array {
 		if ( 'lazy' === $loading ) {
 			return $this->lazy();
 		}
@@ -189,7 +214,7 @@ final class LoadingBudget {
 			return [ 'loading' => 'eager' ];
 		}
 
-		return $this->eager();
+		return $this->eager( $attr );
 	}
 
 	/**
@@ -209,24 +234,48 @@ final class LoadingBudget {
 	/**
 	 * Returns the attributes for an image that loads immediately.
 	 *
-	 * The first one also gets high priority.
+	 * The first one big enough to be the main image also gets high priority. The
+	 * floor is WordPress's own, 50,000 square pixels, so an icon never takes it.
+	 * Without a width and height the image is given the benefit of the doubt.
 	 *
 	 * @since 0.7.0
 	 *
+	 * @param array $attr The attributes for the tag, for its width and height.
+	 *
 	 * @return array
 	 */
-	private function eager(): array {
+	private function eager( array $attr = [] ): array {
 		$attrs = [
 			'loading'  => 'eager',
 			'decoding' => 'sync',
 		];
 
-		if ( ! $this->high_used ) {
+		if ( ! $this->high_used && $this->big_enough( $attr ) ) {
 			$this->high_used        = true;
 			$attrs['fetchpriority'] = 'high';
 		}
 
 		return $attrs;
+	}
+
+	/**
+	 * Whether an image is big enough to be the page's main image.
+	 *
+	 * @since 0.7.0
+	 *
+	 * @param array $attr The attributes for the tag.
+	 *
+	 * @return bool
+	 */
+	private function big_enough( array $attr ): bool {
+		if ( ! isset( $attr['width'], $attr['height'] ) ) {
+			return true;
+		}
+
+		/** This filter is documented in wp-includes/media.php */
+		$min = (int) apply_filters( 'wp_min_priority_img_pixels', 50000 );
+
+		return (int) $attr['width'] * (int) $attr['height'] >= $min;
 	}
 
 	/**
