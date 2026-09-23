@@ -284,9 +284,9 @@ final class LoadingAttributes {
 	 *
 	 * 1. An image built by a shortcode reports the_content as its context, but it
 	 *    is built before WordPress's pass at priority 12, so it is asked again too.
-	 * 2. Mai's template parts, content areas and descriptions, and block theme
-	 *    templates, render blocks first and run WordPress's pass at the end, the
-	 *    same order as the_content but without it.
+	 * 2. Mai's template parts, content areas and descriptions, Mai Custom Content
+	 *    Areas, and block theme templates render blocks first and run WordPress's
+	 *    pass at the end, the same order as the_content but without it.
 	 *
 	 * @since 0.7.0
 	 *
@@ -301,7 +301,9 @@ final class LoadingAttributes {
 				return 'the_content' !== $context;
 			}
 
-			return ! end( $this->content_passes );
+			// Before WordPress's pass, everything waits for it. After it, only content
+			// that renders its own blocks and runs its own pass does.
+			return ! end( $this->content_passes ) || $this->inside_content_renderer();
 		}
 
 		foreach ( [ 'widget_text_content', 'widget_block_content' ] as $filter ) {
@@ -335,7 +337,7 @@ final class LoadingAttributes {
 				return false;
 			}
 
-			if ( in_array( $frame['function'], [ 'mai_get_processed_content', 'get_the_block_template_html' ], true ) ) {
+			if ( in_array( $frame['function'], [ 'mai_get_processed_content', 'maicca_get_processed_content', 'get_the_block_template_html' ], true ) ) {
 				return true;
 			}
 		}

@@ -187,4 +187,45 @@ final class LoadingAttributesTest extends TestCase {
 
 		$this->assertSame( [ 'lazy' ], $this->loading( $html ) );
 	}
+
+	public function test_a_synced_pattern_is_counted_in_page_order(): void {
+		$pattern = self::factory()->post->create(
+			[
+				'post_type'    => 'wp_block',
+				'post_status'  => 'publish',
+				'post_content' => $this->static_image( 2 ) . '<!-- wp:mpi-test/grid {"count":3} /-->',
+			]
+		);
+
+		$html = $this->the_content( $this->static_image( 1 ) . '<!-- wp:block {"ref":' . $pattern . '} /-->' );
+
+		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
+	}
+
+	public function test_a_content_area_added_to_the_content_is_counted_in_page_order(): void {
+		// Mai Custom Content Areas adds its area this way, before WordPress's pass.
+		add_filter( 'the_content', fn( $content ) => mai_get_processed_content( '<!-- wp:mpi-test/grid {"count":2} /-->' ) . $content );
+
+		$html = $this->the_content( $this->static_image( 1 ) . $this->static_image( 2 ) );
+
+		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+	}
+
+	public function test_a_content_area_added_after_the_pass_is_counted_in_page_order(): void {
+		add_filter( 'the_content', fn( $content ) => $content . mai_get_processed_content( $this->static_image( 9 ) . '<!-- wp:mpi-test/grid {"count":2} /-->' ), 20 );
+
+		$html = $this->the_content( $this->static_image( 1 ) );
+
+		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+	}
+
+	public function test_an_area_printed_on_a_hook_is_counted_in_page_order(): void {
+		add_action( 'mpi_test_hook', fn() => print( mai_get_processed_content( $this->static_image( 1 ) . '<!-- wp:mpi-test/grid {"count":3} /-->' ) ) );
+
+		ob_start();
+		do_action( 'mpi_test_hook' );
+		$html = ob_get_clean() . wp_get_attachment_image( $this->create_image(), 'full' );
+
+		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
+	}
 }
