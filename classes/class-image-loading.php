@@ -94,7 +94,7 @@ final class ImageLoading {
 		// This insures only the background image is handled,
 		// not any inner blocks.
 		if ( 'core/cover' === $block['blockName'] ) {
-			$args['class'] = 'wp-block-cover__background';
+			$args['class_name'] = 'wp-block-cover__image-background';
 		}
 
 		// Loop through tags.

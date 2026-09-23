@@ -102,6 +102,17 @@ final class LoadingAttributes {
 			return $this->budget->decline();
 		}
 
+		// An image built while post content renders, such as a grid entry image,
+		// comes before the content's own images in time but not always on the page.
+		// WordPress asks again for every image in the content, in page order, once
+		// the content is built, so the slot is spent then. Here only a block's
+		// explicit choice is written, because a grid knows its entry's position only now.
+		if ( $this->is_deferred( (string) $context ) ) {
+			$explicit = $this->get_block_loading( (array) $attr );
+
+			return $explicit ? [ 'loading' => $explicit ] : $attrs;
+		}
+
 		$this->maybe_set_eager_count( (array) $attr, (string) $context );
 
 		$explicit = $this->get_explicit_loading( (array) $attr, (string) $context );
@@ -111,6 +122,28 @@ final class LoadingAttributes {
 		}
 
 		return $this->budget->next();
+	}
+
+	/**
+	 * Whether WordPress will ask about this image again in its content pass.
+	 *
+	 * Mirrors the check in wp_get_loading_optimization_attributes(), which skips
+	 * counting these images for the same reason.
+	 *
+	 * @since 0.7.0
+	 *
+	 * @param string $context The context for the element.
+	 *
+	 * @return bool
+	 */
+	private function is_deferred( string $context ): bool {
+		foreach ( [ 'the_content', 'widget_text_content', 'widget_block_content' ] as $filter ) {
+			if ( $filter !== $context && doing_filter( $filter ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -126,6 +159,33 @@ final class LoadingAttributes {
 	 * @return string
 	 */
 	private function get_explicit_loading( array $attr, string $context ): string {
+		$loading = $this->get_block_loading( $attr );
+
+		if ( $loading ) {
+			return $loading;
+		}
+
+		$args = $this->get_entry_args( $attr, $context );
+
+		if ( ! $args ) {
+			return '';
+		}
+
+		$setting = (string) ( $args['image_loading'] ?? '' );
+
+		return in_array( $setting, [ 'lazy', 'eager' ], true ) ? $setting : '';
+	}
+
+	/**
+	 * Returns a block's explicit choice for this image, if there is one.
+	 *
+	 * @since 0.7.0
+	 *
+	 * @param array $attr The attributes for the tag.
+	 *
+	 * @return string
+	 */
+	private function get_block_loading( array $attr ): string {
 		// A block writes the real attribute when an editor picks Lazy or Eager, so
 		// by the time WordPress asks, the choice is already on the image.
 		$loading = (string) ( $attr['loading'] ?? '' );
@@ -153,15 +213,7 @@ final class LoadingAttributes {
 			}
 		}
 
-		$args = $this->get_entry_args( $attr, $context );
-
-		if ( ! $args ) {
-			return '';
-		}
-
-		$setting = (string) ( $args['image_loading'] ?? '' );
-
-		return in_array( $setting, [ 'lazy', 'eager' ], true ) ? $setting : '';
+		return '';
 	}
 
 	/**
