@@ -48,7 +48,6 @@ class MaiBlocks extends Images {
 			return;
 		}
 
-		// Bail if nothing is enabled.
 		add_filter( 'render_block_acf/mai-post-preview', [ $this, 'render_block_post_preview' ], 99, 2 );
 	}
 
@@ -71,11 +70,9 @@ class MaiBlocks extends Images {
 			 */
 			$tags = new WP_HTML_Tag_Processor( $block_content );
 
-			// Loop through tags. Written as the real attribute rather than a note for
-			// a later pass, so WordPress sees it while building the tag.
+			// Loop through tags.
 			while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
-				$tags->set_attribute( 'loading', 'lazy' );
-				$tags->set_attribute( 'decoding', 'async' );
+				LoadingAttributes::instance()->apply_to_tag( $tags, 'lazy' );
 			}
 
 			// Get updated content.

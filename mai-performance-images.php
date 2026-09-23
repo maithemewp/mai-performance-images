@@ -26,10 +26,8 @@ if ( file_exists( __DIR__ . '/vendor-prefixed/autoload.php' ) ) {
 	require_once __DIR__ . '/vendor-prefixed/autoload.php';
 }
 
-// Initialize image handling with dependency injection.
-// LoadingAttributes is deliberately a single instance. It holds the page's image
-// count and its one high-priority slot, so a second copy would count twice.
-$attributes = new LoadingAttributes();
+// Initialize image handling.
+LoadingAttributes::instance();
 $images     = new Images();
 $loading    = new ImageLoading();
 $processor  = new ImageProcessor();
@@ -66,6 +64,11 @@ function add_mai_engine_support() {
 
 	// Initialize Mai Engine Images.
 	new MaiEngine();
+
+	// Answer the loading value for each Mai entry's own image.
+	if ( is_attributes_enabled() ) {
+		new MaiEntryLoading();
+	}
 }
 
 add_filter( 'http_request_args', __NAMESPACE__ . '\http_request_args', 10, 2 );

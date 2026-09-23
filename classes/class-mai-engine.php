@@ -32,27 +32,6 @@ class MaiEngine extends Images {
 	protected $conversion_enabled;
 
 	/**
-	 * The grid entry index.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @var int
-	 */
-	protected $grid_entry_index = 0;
-
-	/**
-	 * The current grid block's args, or null when we are not inside one.
-	 *
-	 * Captured when the grid opens, because the image loading decision is made
-	 * while WordPress builds each entry image and the args are not available there.
-	 *
-	 * @since 0.7.0
-	 *
-	 * @var array|null
-	 */
-	protected $grid_args = null;
-
-	/**
 	 * Add hooks.
 	 *
 	 * @since 0.1.0
@@ -94,13 +73,10 @@ class MaiEngine extends Images {
 		}
 
 		// Add hooks used for attributes.
-		add_filter( 'mai_performance_images_grid_loading',     [ $this, 'filter_grid_loading' ], 10, 1 );
 		add_filter( 'mai_content_archive_settings',            [ $this, 'add_archive_settings' ], 10, 2 );
 		add_filter( 'mai_single_content_settings',             [ $this, 'add_single_settings' ], 10, 2 );
 		add_action( 'acf/init',                                [ $this, 'add_grid_block_field_group' ] );
 		add_filter( 'mai_grid_args',                           [ $this, 'add_grid_args' ] );
-		add_filter( 'genesis_markup_entries_open',             [ $this, 'reset_index_filter' ], 10, 2 );
-		add_action( 'mai_after_entry',                         [ $this, 'increment_index' ], 10, 2 );
 	}
 
 	/**
@@ -509,44 +485,6 @@ class MaiEngine extends Images {
 	}
 
 	/**
-	 * Answers the loading value for an entry image inside a grid block.
-	 *
-	 * A grid is the one case where nothing at the image level can work out the
-	 * answer. The block carries its own Image Loading setting and its own count, and
-	 * which entry we are on is only knowable while the grid is rendering. So the
-	 * grid answers, and LoadingAttributes asks.
-	 *
-	 * @since 0.7.0
-	 *
-	 * @param string $loading The current loading value.
-	 *
-	 * @return string
-	 */
-	public function filter_grid_loading( string $loading ): string {
-		// Bail if we are not inside a grid block.
-		if ( ! $this->grid_args ) {
-			return $loading;
-		}
-
-		$setting = (string) ( $this->grid_args['image_loading'] ?? '' );
-
-		// Bail if the block made no explicit choice.
-		if ( ! in_array( $setting, [ 'lazy', 'eager' ], true ) ) {
-			return $loading;
-		}
-
-		// Eager applies to the first N entries, and to all of them when the count is
-		// empty, which is what the setting's own description promises.
-		$count = absint( $this->grid_args['image_loading_count'] ?? 0 );
-
-		if ( 'eager' === $setting && $count && $this->grid_entry_index > $count ) {
-			return 'lazy';
-		}
-
-		return $setting;
-	}
-
-	/**
 	 * Add archive settings.
 	 *
 	 * @since IDK
@@ -768,47 +706,5 @@ class MaiEngine extends Images {
 		$args['image_loading_count'] = \get_field( 'image_loading_count' );
 
 		return $args;
-	}
-
-	/**
-	 * Reset the grid entry index.
-	 *
-	 * @since 0.5.0
-	 *
-	 * @return void
-	 */
-	public function reset_index_filter( $content, $args ) {
-		$this->reset_index();
-
-		// Capture the grid's args while they are still in scope. By the time each
-		// entry image is built these are gone, and that is where the loading
-		// decision now happens.
-		$data = $args['params']['args'] ?? null;
-
-		$this->grid_args = ( $data && 'block' === ( $data['context'] ?? null ) ) ? (array) $data : null;
-
-		return $content;
-	}
-
-	/**
-	 * Reset the grid entry index.
-	 *
-	 * @since 0.5.0
-	 *
-	 * @return void
-	 */
-	public function reset_index(): void {
-		$this->grid_entry_index = 1;
-	}
-
-	/**
-	 * Increment the grid entry index.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @return void
-	 */
-	public function increment_index(): void {
-		$this->grid_entry_index++;
 	}
 }

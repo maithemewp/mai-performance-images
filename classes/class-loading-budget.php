@@ -8,56 +8,44 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 /**
  * Decides which images load immediately and which one gets high priority.
  *
- * WordPress makes the same decision on its own, from document order and the file's
- * own width times height. That is all it can know. This plugin knows more: it can
- * tell a logo from an entry image from an avatar, and it knows the archive and
- * single settings for the template being rendered. So it answers instead.
+ * WordPress makes the same decision on its own. It counts images in the main loop
+ * and, before the loop, anything over 50,000 square pixels measured on the file. So
+ * a logo uploaded large for retina can take the slot from the article image. This
+ * plugin knows more: it can tell a logo from an entry image from an avatar, and it
+ * knows the archive, single and grid settings for the entry being rendered.
  *
  * Two rules, both borrowed from core because both are sound:
  *
- * 1. The first few images on a page load immediately, the rest lazy load. Which
- *    images those are is a count in document order, not a guess about the fold.
- * 2. Exactly one image gets fetchpriority="high". The hint is a ranking, so marking
+ * 1. The first few images WordPress asks about load immediately, the rest lazy
+ *    load. LoadingAttributes makes sure that order is page order.
+ * 2. At most one image gets fetchpriority="high". The hint is a ranking, so marking
  *    ten images high says the same as marking none.
- *
- * What differs from core is which images are allowed to spend a slot. Core counts
- * anything over 50,000 square pixels, measured on the file rather than on the page,
- * so a logo uploaded large for retina takes the slot from the article image. This
- * class skips by kind instead: a logo is never an LCP candidate no matter what it
- * was uploaded at.
  *
  * @since 0.7.0
  */
 final class LoadingBudget {
 	/**
-	 * Image contexts and classes that never spend a slot.
-	 *
-	 * A logo, a scroll logo and an avatar are never the largest painted element,
-	 * whatever their file dimensions say. Skipping them is the whole reason this
-	 * class exists rather than leaving the count to WordPress.
+	 * Contexts that belong to a logo.
 	 *
 	 * @since 0.7.0
 	 *
 	 * @var array
 	 */
-	private const SKIP_CONTEXTS = [
+	private const LOGO_CONTEXTS = [
 		'mai_logo',
 		'mai_scroll_logo',
-		'get_avatar',
 	];
 
 	/**
-	 * Class fragments that never spend a slot, for images that arrive without a
-	 * context of their own.
+	 * Class names that belong to a logo.
 	 *
 	 * @since 0.7.0
 	 *
 	 * @var array
 	 */
-	private const SKIP_CLASSES = [
+	private const LOGO_CLASSES = [
 		'custom-logo',
 		'custom-scroll-logo',
-		'avatar',
 	];
 
 	/**
@@ -88,36 +76,53 @@ final class LoadingBudget {
 	private ?int $eager_count = null;
 
 	/**
-	 * Whether this image is allowed to spend a slot.
+	 * Returns what kind of image this is, when the kind decides its loading.
+	 *
+	 * A logo is never the largest painted element, and neither is an avatar, so
+	 * neither spends a slot. A logo sits in the header and loads right away. An
+	 * avatar is usually in a comment list and lazy loads.
+	 *
+	 * Only images built by wp_get_attachment_image() or get_avatar() carry a class
+	 * or a context to go on. WordPress's pass over finished HTML passes neither.
 	 *
 	 * @since 0.7.0
 	 *
 	 * @param array  $attr    The attributes for the tag.
 	 * @param string $context The context for the element.
 	 *
-	 * @return bool
+	 * @return string 'logo', 'avatar', or an empty string.
 	 */
-	public function counts( array $attr, string $context ): bool {
-		if ( in_array( $context, self::SKIP_CONTEXTS, true ) ) {
-			return false;
+	public function kind( array $attr, string $context ): string {
+		$classes = self::classes( $attr );
+
+		if ( in_array( $context, self::LOGO_CONTEXTS, true ) || array_intersect( self::LOGO_CLASSES, $classes ) ) {
+			return 'logo';
 		}
 
-		$class = (string) ( $attr['class'] ?? '' );
-
-		foreach ( self::SKIP_CLASSES as $fragment ) {
-			if ( str_contains( $class, $fragment ) ) {
-				return false;
-			}
+		if ( 'get_avatar' === $context || in_array( 'avatar', $classes, true ) ) {
+			return 'avatar';
 		}
 
-		return true;
+		return '';
+	}
+
+	/**
+	 * Returns the attributes for an image of a kind that never spends a slot.
+	 *
+	 * @since 0.7.0
+	 *
+	 * @param string $kind 'logo' or 'avatar'.
+	 *
+	 * @return array
+	 */
+	public function for_kind( string $kind ): array {
+		return 'logo' === $kind ? $this->decline() : $this->lazy();
 	}
 
 	/**
 	 * Takes the next slot and returns the attributes for it.
 	 *
-	 * Call once per image that counts. An image that does not count should be given
-	 * decline() instead, so it neither consumes a slot nor claims priority.
+	 * Call once per image that counts.
 	 *
 	 * @since 0.7.0
 	 *
@@ -134,11 +139,11 @@ final class LoadingBudget {
 	}
 
 	/**
-	 * Spends a slot on a decision already made elsewhere.
+	 * Returns the attributes for a decision already made elsewhere.
 	 *
-	 * A block or a template setting that forces eager or lazy still consumes a slot,
-	 * so the count keeps describing the page rather than only the images nobody
-	 * configured.
+	 * Eager spends a slot, so the images after it still count from the top of the
+	 * page. Lazy does not, because an image somebody chose to lazy load is not near
+	 * the top of the page.
 	 *
 	 * @since 0.7.0
 	 *
@@ -147,38 +152,70 @@ final class LoadingBudget {
 	 * @return array
 	 */
 	public function take( string $loading ): array {
+		if ( 'eager' !== $loading ) {
+			return $this->lazy();
+		}
+
 		$this->counted++;
 
-		return 'eager' === $loading ? $this->eager() : $this->lazy();
+		return $this->eager();
 	}
 
 	/**
-	 * Sets how many images load immediately, overriding the default.
+	 * Returns the attributes for an image that already carries its loading value.
 	 *
-	 * Used by the archive setting, which carries its own count.
+	 * This is WordPress asking again about an image this plugin answered while the
+	 * tag was built, or an image a block wrote its choice onto. Neither spends a
+	 * slot, which is also what core does. An eager image may still take high
+	 * priority, when no image has it yet.
 	 *
 	 * @since 0.7.0
 	 *
-	 * @param int $count The number of images.
+	 * @param string $loading       Either 'eager' or 'lazy'.
+	 * @param string $fetchpriority The fetchpriority already on the image, if any.
+	 *
+	 * @return array
+	 */
+	public function keep( string $loading, string $fetchpriority ): array {
+		if ( 'lazy' === $loading ) {
+			return $this->lazy();
+		}
+
+		if ( 'high' === $fetchpriority ) {
+			$this->high_used = true;
+		}
+
+		if ( $fetchpriority ) {
+			return [ 'loading' => 'eager' ];
+		}
+
+		return $this->eager();
+	}
+
+	/**
+	 * Gives back the high-priority slot.
+	 *
+	 * Used when a block forces lazy loading onto an image after it was given high
+	 * priority, so the next eager image can have it instead.
+	 *
+	 * @since 0.7.0
 	 *
 	 * @return void
 	 */
-	public function set_eager_count( int $count ): void {
-		$this->eager_count = max( 1, $count );
+	public function release_high(): void {
+		$this->high_used = false;
 	}
 
 	/**
 	 * Returns the attributes for an image that loads immediately.
 	 *
-	 * Only the first of them claims high priority. Every later one loads
-	 * immediately without a priority hint, which leaves the browser's own
-	 * ordering intact rather than flattening it.
+	 * The first one also gets high priority.
 	 *
 	 * @since 0.7.0
 	 *
 	 * @return array
 	 */
-	public function eager(): array {
+	private function eager(): array {
 		$attrs = [
 			'loading'  => 'eager',
 			'decoding' => 'sync',
@@ -195,16 +232,14 @@ final class LoadingBudget {
 	/**
 	 * Returns the attributes for a lazy loaded image.
 	 *
-	 * fetchpriority is deliberately left off. WordPress adds sizes="auto" to lazy
-	 * images, which lets the browser measure the space the image actually fills and
-	 * download the matching file, and a priority hint here would only compete with
-	 * the one image that should have it.
+	 * No fetchpriority, so a lazy image that turns out to be in view is not held
+	 * back.
 	 *
 	 * @since 0.7.0
 	 *
 	 * @return array
 	 */
-	public function lazy(): array {
+	private function lazy(): array {
 		return [
 			'loading'  => 'lazy',
 			'decoding' => 'async',
@@ -212,17 +247,17 @@ final class LoadingBudget {
 	}
 
 	/**
-	 * Returns the attributes for an image that declines its slot.
+	 * Returns the attributes for an image that loads immediately without a slot.
 	 *
 	 * "auto" is WordPress's own way of saying an image may or may not be visible.
-	 * It keeps the image out of the running for high priority without claiming the
-	 * image is offscreen.
+	 * It keeps the image out of the running for high priority, and WordPress does
+	 * not count an image that carries it.
 	 *
 	 * @since 0.7.0
 	 *
 	 * @return array
 	 */
-	public function decline(): array {
+	private function decline(): array {
 		return [
 			'loading'       => 'eager',
 			'fetchpriority' => 'auto',
@@ -260,17 +295,30 @@ final class LoadingBudget {
 	}
 
 	/**
-	 * Resets the budget.
+	 * Starts the count over.
 	 *
-	 * Needed wherever a page renders more than once in a request, such as the
-	 * customizer preview or a REST render.
+	 * For anything that renders a second page in the same request.
 	 *
 	 * @since 0.7.0
 	 *
 	 * @return void
 	 */
 	public function reset(): void {
-		$this->counted   = 0;
-		$this->high_used = false;
+		$this->counted     = 0;
+		$this->high_used   = false;
+		$this->eager_count = null;
+	}
+
+	/**
+	 * Returns the image's class names.
+	 *
+	 * @since 0.7.0
+	 *
+	 * @param array $attr The attributes for the tag.
+	 *
+	 * @return array
+	 */
+	public static function classes( array $attr ): array {
+		return array_filter( explode( ' ', (string) ( $attr['class'] ?? '' ) ) );
 	}
 }

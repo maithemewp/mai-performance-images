@@ -63,7 +63,11 @@ final class ImageLoading {
 	}
 
 	/**
-	 * Render the core/site-logo block.
+	 * Writes an editor's Lazy or Eager choice onto a block's image.
+	 *
+	 * Inside post content, WordPress then reads the value in its pass over the
+	 * content. Outside it, the tag was already answered, so apply_to_tag() also
+	 * takes back what a lazy image should not keep.
 	 *
 	 * @since 0.1.0
 	 *
@@ -99,10 +103,7 @@ final class ImageLoading {
 
 		// Loop through tags.
 		while ( $tags->next_tag( $args ) ) {
-			// Write the real attribute, not a note for a later pass. WordPress reads
-			// an existing loading value while it builds the tag, which is what lets a
-			// lazy image still pick up sizes="auto".
-			$tags->set_attribute( 'loading', $loading );
+			LoadingAttributes::instance()->apply_to_tag( $tags, $loading );
 		}
 
 		// Get updated block content.
