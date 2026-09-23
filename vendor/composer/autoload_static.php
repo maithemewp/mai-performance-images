@@ -13,52 +13,25 @@ class ComposerStaticInit5ecbabff5f374cf0a6ff2146b68b0b1b
     public static $prefixLengthsPsr4 = array (
         'M' =>
         array (
-            'Mai\\PerformanceImages\\dependencies\\' => 35,
             'Mai\\PerformanceImages\\' => 22,
-        ),
-        'I' =>
-        array (
-            'Intervention\\Image\\' => 19,
-            'Intervention\\Gif\\' => 17,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'Mai\\PerformanceImages\\dependencies\\' =>
-        array (
-            0 => __DIR__ . '/../..' . '/classes/dependencies',
-        ),
         'Mai\\PerformanceImages\\' =>
         array (
             0 => __DIR__ . '/../..' . '/classes',
-        ),
-        'Intervention\\Image\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/intervention/image/src',
-        ),
-        'Intervention\\Gif\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/intervention/gif/src',
         ),
     );
 
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
-        'Mai\\PerformanceImages\\AbstractImages' => __DIR__ . '/../..' . '/classes/class-abstract-images.php',
-        'Mai\\PerformanceImages\\BackgroundProcess' => __DIR__ . '/../..' . '/classes/class-background-process.php',
-        'Mai\\PerformanceImages\\CLI' => __DIR__ . '/../..' . '/classes/class-cli.php',
-        'Mai\\PerformanceImages\\DownloadManager' => __DIR__ . '/../..' . '/classes/class-download-manager.php',
-        'Mai\\PerformanceImages\\ImageCacheManager' => __DIR__ . '/../..' . '/classes/class-image-cache-manager.php',
         'Mai\\PerformanceImages\\ImageLoading' => __DIR__ . '/../..' . '/classes/class-image-loading.php',
-        'Mai\\PerformanceImages\\ImageProcessor' => __DIR__ . '/../..' . '/classes/class-image-processor.php',
-        'Mai\\PerformanceImages\\Images' => __DIR__ . '/../..' . '/classes/class-images.php',
         'Mai\\PerformanceImages\\LoadingAttributes' => __DIR__ . '/../..' . '/classes/class-loading-attributes.php',
         'Mai\\PerformanceImages\\LoadingBudget' => __DIR__ . '/../..' . '/classes/class-loading-budget.php',
-        'Mai\\PerformanceImages\\Logger' => __DIR__ . '/../..' . '/classes/class-logger.php',
         'Mai\\PerformanceImages\\MaiBlocks' => __DIR__ . '/../..' . '/classes/class-mai-blocks.php',
         'Mai\\PerformanceImages\\MaiEngine' => __DIR__ . '/../..' . '/classes/class-mai-engine.php',
         'Mai\\PerformanceImages\\MaiEntryLoading' => __DIR__ . '/../..' . '/classes/class-mai-entry-loading.php',
-        'Mai\\PerformanceImages\\Scheduler' => __DIR__ . '/../..' . '/classes/class-scheduler.php',
         'Mai\\PerformanceImages\\Settings' => __DIR__ . '/../..' . '/classes/class-settings.php',
         'Mai\\PerformanceImages\\Updater' => __DIR__ . '/../..' . '/classes/class-updater.php',
     );

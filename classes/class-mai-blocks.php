@@ -12,47 +12,23 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  *
  * @since 0.4.0
  */
-class MaiBlocks extends Images {
+final class MaiBlocks {
 	/**
-	 * The attributes enabled.
+	 * Constructor.
 	 *
-	 * @since 0.5.0
-	 *
-	 * @var bool
-	 */
-	protected $attributes_enabled;
-
-	/**
-	 * The conversion enabled.
-	 *
-	 * @since 0.5.0
-	 *
-	 * @var bool
-	 */
-	protected $conversion_enabled;
-
-	/**
-	 * Add hooks.
-	 *
-	 * @since 0.4.0
+	 * @since 0.7.0
 	 *
 	 * @return void
 	 */
-	protected function hooks(): void {
-		// Set props.
-		$this->attributes_enabled = is_attributes_enabled();
-		$this->conversion_enabled = is_conversion_enabled();
-
-		// Bail if nothing is enabled.
-		if ( ! $this->attributes_enabled && ! $this->conversion_enabled ) {
-			return;
-		}
-
+	public function __construct() {
 		add_filter( 'render_block_acf/mai-post-preview', [ $this, 'render_block_post_preview' ], 99, 2 );
 	}
 
 	/**
-	 * Render the post preview block.
+	 * Lazy loads the post preview block's images.
+	 *
+	 * The block shows a preview card for a linked post, which is rarely the main
+	 * image on the page.
 	 *
 	 * @since 0.4.0
 	 *
@@ -62,44 +38,12 @@ class MaiBlocks extends Images {
 	 * @return string The block content.
 	 */
 	public function render_block_post_preview( string $block_content, array $block ): string {
-		// If attributes are enabled.
-		if ( $this->attributes_enabled ) {
-			/**
-			 * Set up tag processor.
-			 * @disregard P1008
-			 */
-			$tags = new WP_HTML_Tag_Processor( $block_content );
+		$tags = new WP_HTML_Tag_Processor( $block_content );
 
-			// Loop through tags.
-			while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
-				LoadingAttributes::instance()->apply_to_tag( $tags, 'lazy' );
-			}
-
-			// Get updated content.
-			$block_content = $tags->get_updated_html();
-
-			// Handle attributes.
-			$block_content = $this->handle_attributes( $block_content );
+		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
+			LoadingAttributes::instance()->apply_to_tag( $tags, 'lazy' );
 		}
 
-		// If conversion is enabled.
-		if ( $this->conversion_enabled ) {
-			// Set args.
-			$image_args = [
-				'aspect_ratio' => '3/4',
-				'max_width'    => 300,
-				'sizes'        => [
-					'mobile'  => '100vw',
-					'tablet'  => '300px',
-					'desktop' => '300px',
-				],
-			];
-
-			/** @disregard P1008 */
-			$block_content = $this->handle_image( $block_content, $image_args );
-		}
-
-		// Return the block content.
-		return $block_content;
+		return $tags->get_updated_html();
 	}
 }

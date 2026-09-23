@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name:       Mai Performance Images
- * Description:       Optimizes image delivery through automatic resizing and WebP conversion with static file caching.
- * Version:           0.6.0
+ * Description:       Loads the first images on each page right away and lazy loads the rest, with Image Loading settings for blocks, Mai grids and the Customizer.
+ * Version:           0.7.0
  * Requires at least: 6.7
  * Requires PHP:      8.1
  * Author:            JiveDig
@@ -19,35 +19,12 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // Include vendor files.
 require_once __DIR__ . '/vendor/autoload.php';
 
-// Strauss-prefixed runtime dependencies live outside Composer's generated
-// autoloader so they load no matter how vendor/ is (re)dumped — including the
-// prod-only (--no-dev) dump that ships in the plugin zip.
-if ( file_exists( __DIR__ . '/vendor-prefixed/autoload.php' ) ) {
-	require_once __DIR__ . '/vendor-prefixed/autoload.php';
-}
-
-// Initialize image handling.
+// Initialize.
 LoadingAttributes::instance();
-$images     = new Images();
-$loading    = new ImageLoading();
-$processor  = new ImageProcessor();
-$scheduler  = new Scheduler();
-$settings   = new Settings();
-$mai_blocks = new MaiBlocks();
-$updater    = new Updater();
-
-add_action( 'cli_init', __NAMESPACE__ . '\register_cli_command' );
-/**
- * Register the CLI command.
- *
- * @since 0.1.0
- *
- * @return void
- */
-function register_cli_command() {
-	/** @disregard P1009 */
-	\WP_CLI::add_command( 'mai-performance-images', 'Mai\PerformanceImages\CLI' );
-}
+new ImageLoading();
+new MaiBlocks();
+new Settings();
+new Updater();
 
 add_action( 'after_setup_theme', __NAMESPACE__ . '\add_mai_engine_support' );
 /**
@@ -58,79 +35,63 @@ add_action( 'after_setup_theme', __NAMESPACE__ . '\add_mai_engine_support' );
  * @return void
  */
 function add_mai_engine_support() {
-	if ( ! class_exists( '\Mai_Engine' ) ) {
+	if ( ! class_exists( '\Mai_Engine' ) || ! is_attributes_enabled() ) {
 		return;
 	}
 
-	// Initialize Mai Engine Images.
 	new MaiEngine();
-
-	// Answer the loading value for each Mai entry's own image.
-	if ( is_attributes_enabled() ) {
-		new MaiEntryLoading();
-	}
+	new MaiEntryLoading();
 }
 
-add_filter( 'http_request_args', __NAMESPACE__ . '\http_request_args', 10, 2 );
+add_action( 'admin_init', __NAMESPACE__ . '\remove_conversion_leftovers' );
 /**
- * Add authorization header to HTTP requests.
+ * Removes what WebP conversion left behind, once.
  *
- * @since 0.1.0
+ * Conversion was removed in 0.7.0. Its scheduled jobs and queue rows are deleted.
+ * The converted files in uploads/mai-performance-images are left alone, because
+ * pages already cached by a page cache or CDN may still point to them. Delete that
+ * folder once those caches have cleared.
  *
- * @param array  $r   HTTP request arguments.
- * @param string $url HTTP request URL.
- *
- * @return array Modified HTTP request arguments.
- */
-function http_request_args( $r, $url ) {
-	// Bail if no url.
-	if ( ! $url ) {
-		return $r;
-	}
-
-	// Parse the URL to get query parameters.
-	$query = wp_parse_url( $url, PHP_URL_QUERY );
-
-	// Bail if no query.
-	if ( ! $query ) {
-		return $r;
-	}
-
-	// Parse the query string.
-	wp_parse_str( $query, $result );
-
-	// Bail if not our action.
-	if ( ! isset( $result['action'] ) || ! str_starts_with( $result['action'], 'mai_performance_images_' ) ) {
-		return $r;
-	}
-
-	/** @disregard P1011 */
-	$un = defined( 'MAI_BASIC_AUTH_USERNAME' ) ? MAI_BASIC_AUTH_USERNAME : '';
-	/** @disregard P1011 */
-	$pw = defined( 'MAI_BASIC_AUTH_PASSWORD' ) ? MAI_BASIC_AUTH_PASSWORD : '';
-
-	// Bail if no username or password.
-	if ( ! ( $un && $pw ) ) {
-		return $r;
-	}
-
-	// Add the authorization header.
-	$r['headers']['Authorization'] = 'Basic ' . base64_encode( $un . ':' . $pw );
-
-	return $r;
-}
-
-/**
- * Clear scheduled events on plugin deactivation.
- *
- * @since 0.1.0
+ * @since 0.7.0
  *
  * @return void
  */
-register_deactivation_hook( __FILE__, function() {
-	$scheduler = new Scheduler();
-	$scheduler->clear_scheduled_events();
-} );
+function remove_conversion_leftovers(): void {
+	if ( get_option( 'mai_performance_images_conversion_removed' ) ) {
+		return;
+	}
+
+	global $wpdb;
+
+	wp_clear_scheduled_hook( 'mai_performance_images_cleanup_cache' );
+	wp_clear_scheduled_hook( 'mai_performance_images_processor_cron' );
+
+	// The background queue stored its batches and status as site options. Each is
+	// deleted through WordPress so the object cache forgets it too.
+	$table = is_multisite() ? $wpdb->sitemeta : $wpdb->options;
+	$key   = is_multisite() ? 'meta_key' : 'option_name';
+	$names = $wpdb->get_col(
+		$wpdb->prepare(
+			"SELECT {$key} FROM {$table} WHERE {$key} LIKE %s",
+			$wpdb->esc_like( 'mai_performance_images_processor_' ) . '%'
+		)
+	);
+
+	foreach ( $names as $name ) {
+		delete_site_option( $name );
+	}
+
+	delete_site_transient( 'mai_performance_images_processor_process_lock' );
+
+	update_option( 'mai_performance_images_conversion_removed', MAI_PERFORMANCE_IMAGES_VERSION, false );
+}
+
+/**
+ * The plugin version, for the one-time cleanup.
+ *
+ * @since 0.7.0
+ */
+const MAI_PERFORMANCE_IMAGES_VERSION = '0.7.0';
 
 /**
  * Gets default options.
@@ -139,24 +100,23 @@ register_deactivation_hook( __FILE__, function() {
  *
  * @return array
  */
-function get_default_options() {
+function get_default_options(): array {
 	return [
-		'attributes'     => true,
-		'conversion'     => false,
-		'quality'        => 80,
-		'cache_duration' => 30, // Days.
+		'attributes' => true,
 	];
 }
 
 /**
- * Gets plugin options.
+ * Gets plugin options, always as a full array.
  *
  * @since 0.5.0
  *
  * @return array
  */
-function get_plugin_options() {
-	return get_option( 'mai_performance_images', get_default_options() );
+function get_plugin_options(): array {
+	$options = get_option( 'mai_performance_images', [] );
+
+	return wp_parse_args( is_array( $options ) ? $options : [], get_default_options() );
 }
 
 /**
@@ -166,19 +126,6 @@ function get_plugin_options() {
  *
  * @return bool
  */
-function is_attributes_enabled() {
-	$options = get_plugin_options();
-	return (bool) ( $options['attributes'] ?? true );
-}
-
-/**
- * Checks if conversion functionality is enabled.
- *
- * @since 0.5.0
- *
- * @return bool
- */
-function is_conversion_enabled() {
-	$options = get_plugin_options();
-	return (bool) ( $options['conversion'] ?? true );
+function is_attributes_enabled(): bool {
+	return (bool) get_plugin_options()['attributes'];
 }

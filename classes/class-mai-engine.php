@@ -2,492 +2,37 @@
 
 namespace Mai\PerformanceImages;
 
-use WP_HTML_Tag_Processor;
-
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
- * Mai Engine Images.
+ * Adds the Image Loading settings to Mai Theme.
+ *
+ * The settings go on Content Archives and Single Content in the Customizer, and on
+ * the Mai Post Grid and Mai Term Grid blocks. MaiEntryLoading reads them while each
+ * entry renders.
  *
  * @since 0.1.0
  */
-class MaiEngine extends Images {
+class MaiEngine {
 	/**
-	 * The attributes enabled.
+	 * Constructor.
 	 *
-	 * @since 0..0
-	 *
-	 * @var bool
-	 */
-	protected $attributes_enabled;
-
-	/**
-	 * The conversion enabled.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @var bool
-	 */
-	protected $conversion_enabled;
-
-	/**
-	 * Add hooks.
-	 *
-	 * @since 0.1.0
+	 * @since 0.7.0
 	 *
 	 * @return void
 	 */
-	protected function hooks(): void {
-		// Set props.
-		$this->attributes_enabled = is_attributes_enabled();
-		$this->conversion_enabled = is_conversion_enabled();
-
-		// Bail if nothing is enabled.
-		if ( ! $this->attributes_enabled && ! $this->conversion_enabled ) {
-			return;
-		}
-
-		/**
-		 * Get mai breakpoints.
-		 * @disregard P1010
-		 */
-		$breakpoints = \mai_get_breakpoints();
-
-		// Set props.
-		$this->tablet_breakpoint  = $breakpoints['md'];
-		$this->desktop_breakpoint = $breakpoints['lg'];
-		$this->content_size       = 800;
-		$this->wide_size          = 1200;
-
-		// Add hooks used for both attributes and conversion.
-		add_action( 'genesis_site_title',                      [ $this, 'before_logo' ], 0 );
-		add_filter( 'mai_page_header_img',                     [ $this, 'render_page_header_image' ], 999, 3 );
-		add_filter( 'genesis_markup_entry-image-link_content', [ $this, 'render_entry_image' ], 10, 3 );
-		add_filter( 'render_block_acf/mai-post-grid',          [ $this, 'render_block_entry_image' ], 99, 2 );
-		add_filter( 'render_block_acf/mai-term-grid',          [ $this, 'render_block_entry_image' ], 99, 2 );
-
-		// Bail if attributes are disabled.
-		if ( ! $this->attributes_enabled ) {
-			return;
-		}
-
-		// Add hooks used for attributes.
-		add_filter( 'mai_content_archive_settings',            [ $this, 'add_archive_settings' ], 10, 2 );
-		add_filter( 'mai_single_content_settings',             [ $this, 'add_single_settings' ], 10, 2 );
-		add_action( 'acf/init',                                [ $this, 'add_grid_block_field_group' ] );
-		add_filter( 'mai_grid_args',                           [ $this, 'add_grid_args' ] );
-	}
-
-	/**
-	 * Adds filter on custom logo before site title.
-	 * Removes filter after the logo is added.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @return void
-	 */
-	public function before_logo() {
-		add_filter( 'get_custom_logo', [ $this, 'custom_logo' ], 15, 1 );
-
-		add_action( 'genesis_site_title', function() {
-			remove_filter( 'get_custom_logo', [ $this, 'custom_logo' ], 15, 1 );
-		}, 99 );
-	}
-
-	/**
-	 * Filters the custom logo.
-	 * Default logo already has eager loading from Mai Engine.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $html    The existing logo HTML.
-	 *
-	 * @return string
-	 */
-	public function custom_logo( string $html ): string {
-		// If conversion is enabled.
-		if ( $this->conversion_enabled ) {
-			/**
-			 * Set up tag processor.
-			 * @disregard P1008
-			 */
-			$tags  = new WP_HTML_Tag_Processor( $html );
-			$sizes = [];
-
-			// Loop through tags.
-			while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-logo' ] ) ) {
-				/** @disregard P1010 */
-				$tags->set_attribute( 'data-mai-image-id', \mai_get_logo_id() );
-
-				// Set sizes.
-				$sizes = $tags->get_attribute( 'sizes' );
-			}
-
-			// Get updated content.
-			$html = $tags->get_updated_html();
-		}
-
-		/**
-		 * Set up tag processor.
-		 * @disregard P1008
-		 */
-		$tags = new WP_HTML_Tag_Processor( $html );
-
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'custom-scroll-logo' ] ) ) {
-			// Loading comes from LoadingAttributes, which declines the high-priority
-			// slot for a scroll logo rather than claiming it.
-
-			// Set data-mai-image-id if conversion is enabled.
-			if ( $this->conversion_enabled ) {
-				/** @disregard P1010 */
-				$tags->set_attribute( 'data-mai-image-id', \mai_get_scroll_logo_id() );
-			}
-		}
-
-		// Get updated content.
-		$html = $tags->get_updated_html();
-
-		// If conversion is enabled, handle the image.
-		if ( $this->conversion_enabled ) {
-			/**
-			 * Get logo width.
-			 * @disregard P1010
-			 */
-			$widths = \mai_get_option( 'logo-width', [] );
-			$widths = array_map( 'absint', $widths );
-			$width  = isset( $widths['desktop'] ) ? $widths['desktop'] : 0;
-			$width  = max( $width, 1 );
-			$sizes  = $sizes ?? $width . 'px';
-
-			// Set args.
-			$args = [
-				'max_images' => 0,
-				'max_width'  => $width * 2,
-				'sizes'      => [
-					'mobile'  => $sizes,
-					'tablet'  => $sizes,
-					'desktop' => $sizes,
-				],
-			];
-
-			// Handle the image.
-			$html = $this->handle_image( $html, $args );
-		}
-
-		return $html;
-	}
-
-	/**
-	 * Filters the page header image.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $image The existing image.
-	 * @param int    $image_id The image ID.
-	 * @param string $image_size The image size.
-	 *
-	 * @return string
-	 */
-	public function render_page_header_image( string $image, int $image_id, string $image_size ): string {
-		// Loading, fetchpriority and decoding are decided in LoadingAttributes,
-		// while WordPress is still building the tag. Setting them here would arrive
-		// after WordPress has already decided whether the image gets sizes="auto".
-		if ( $this->attributes_enabled ) {
-			// Handle the attributes.
-			$image = $this->handle_attributes( $image );
-		}
-
-		// If conversion is enabled, handle the image.
-		if ( $this->conversion_enabled ) {
-			// Set args.
-			$args = [
-				'image_id'  => $image_id,
-				'max_width' => 2400,
-				'sizes'     => [
-					'mobile'  => '100vw',
-					'tablet'  => '100vw',
-					'desktop' => '100vw',
-				],
-			];
-
-			// Handle the image.
-			$image = $this->handle_image( $image, $args );
-		}
-
-		return $image;
-	}
-
-	/**
-	 * Filters the archive and single entry image.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param array $attr The attributes.
-	 *
-	 * @return array
-	 */
-	public function render_entry_image( string $content, array $args ): string {
-		// Bail if not showing the image.
-		if ( ! ( isset( $args['params']['args']['show'] ) && in_array( 'image', (array) $args['params']['args']['show'] ) ) ) {
-			/** @disregard P1008 */
-			return $content;
-		}
-
-		// Bail if no entry.
-		if ( ! isset( $args['params']['entry'] ) ) {
-			/** @disregard P1008 */
-			return $content;
-		}
-
-		// Set image ID.
-		$image_id = $args['params']['args']['image_id'] ?? null;
-
-		// Bail if no image ID.
-		if ( ! $image_id ) {
-			/** @disregard P1008 */
-			return $content;
-		}
-
-		// Set data-mai-image-id if conversion is enabled.
-		if ( $this->conversion_enabled ) {
-			/**
-			 * Set up tag processor.
-			 * @disregard P1008
-			 */
-			$tags = new WP_HTML_Tag_Processor( $content );
-
-			// Loop through tags.
-			while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
-				$tags->set_attribute( 'data-mai-image-id', $image_id );
-			}
-
-			// Get updated content.
-			$content = $tags->get_updated_html();
-		}
-
-		// Return the content based on the context.
-		switch ( $args['params']['args']['context'] ) {
-			case 'archive':
-				$content = $this->render_archive_entry_image( $content, $args );
-				break;
-			case 'single':
-				$content = $this->render_single_entry_image( $content, $args );
-				break;
-			// Skip block since we only need to set image ID here.
-			// The `render_block_entry_image` method will handle the rest.
-			default:
-				break;
-		}
-
-		// If attributes are enabled, handle the attributes.
-		if ( $this->attributes_enabled ) {
-			$content = $this->handle_attributes( $content );
-		}
-
-		return $content;
-	}
-
-	/**
-	 * Render the archive entry image.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $content The content.
-	 * @param array  $args    The args.
-	 *
-	 * @return string
-	 */
-	public function render_archive_entry_image( string $content, array $args ): string {
-		/**
-		 * Get template args.
-		 * @disregard P1010
-		 */
-		$data = \mai_get_template_args();
-
-		// Bail if no data.
-		if ( ! $data ) {
-			/** @disregard P1008 */
-			return $content;
-		}
-
-		// Loading, fetchpriority and decoding come from LoadingAttributes, which
-		// reads the same image_loading and image_loading_count settings this used to
-		// read, while WordPress is still building the tag rather than afterwards.
-
-		// If conversion is enabled, handle the image.
-		if ( $this->conversion_enabled ) {
-			/** @disregard P1010 */
-			$columns     = array_reverse( \mai_get_breakpoint_columns( $data ) );
-			$position    = $data['image_position'] ?? null;
-			$orientation = $data['image_orientation'] ?? null;
-			$image_size  = $data['image_size'] ?? null;
-			$side        = $position && ( str_contains( $position, 'left' ) || str_contains( $position, 'right' ) ) ? 2 : 1;
-
-			/** @disregard P1010 */
-			$ratio = $this->get_image_aspect_ratio( $orientation, $image_size );
-
-			// Set args.
-			$image_args = [
-				'aspect_ratio' => $ratio,
-				'max_width'  => (int) ( 2400 / (int) $columns['lg'] / $side ),
-				'max_images' => 0, // Process all images in the archive.
-				'sizes'      => [
-					'mobile'  => (int) ( 100 / (int) $columns['sm'] ) . 'vw',
-					'tablet'  => (int) ( 100 / (int) $columns['md'] / $side ) . 'vw',
-					'desktop' => (int) ( 100 / (int) $columns['lg'] / $side ) . 'vw',
-				],
-			];
-
-			// Handle the image.
-			$content = $this->handle_image( $content, $image_args );
-		}
-
-		return $content;
-	}
-
-	/**
-	 * Render the single entry image.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $content The content.
-	 * @param array  $args    The args.
-	 * @return string
-	 */
-	public function render_single_entry_image( string $content, array $args ): string {
-		/**
-		 * Get template args.
-		 * @disregard P1010
-		 */
-		$data = \mai_get_template_args();
-
-		// Bail if no data.
-		if ( ! $data ) {
-			/** @disregard P1008 */
-			return $content;
-		}
-
-		// Loading, fetchpriority and decoding come from LoadingAttributes, which
-		// reads the same image_loading setting this used to read.
-
-		// If conversion is enabled, handle the image.
-		if ( $this->conversion_enabled ) {
-			// Get image aspect ratio.
-			$orientation = $data['image_orientation'] ?? null;
-			$image_size  = $data['image_size'] ?? null;
-			$ratio       = $this->get_image_aspect_ratio( $orientation, $image_size );
-
-			// Set args.
-			$image_args = [
-				'aspect_ratio' => $ratio,
-				'max_width'  => 1600,
-				'sizes'      => [
-					'mobile'  => '90vw',
-					'tablet'  => '80vw',
-					'desktop' => '70vw',
-				],
-			];
-
-			// Handle the image.
-			$content = $this->handle_image( $content, $image_args );
-		}
-
-		return $content;
-	}
-
-	/**
-	 * Render the Mai Grid block.
-	 *
-	 * @since 0.1.0
-	 *
-	 * @param string $block_content The block content.
-	 * @param array  $block         The block.
-	 *
-	 * @return string
-	 */
-	public function render_block_entry_image( string $block_content, array $block ): string {
-		// Bail if conversion is disabled.
-		if ( ! $this->conversion_enabled ) {
-			return $block_content;
-		}
-
-		// Get ACF block data.
-		$data = $block['attrs']['data'] ?? [];
-
-		/** @disregard P1010 */
-		$columns     = array_reverse( \mai_get_breakpoint_columns( $data ) );
-		$position    = $data['image_position'] ?? null;
-		$side        = $position && ( str_contains( $position, 'left' ) || str_contains( $position, 'right' ) ) ? 2 : 1;
-		$orientation = $data['image_orientation'] ?? null;
-		$image_size  = $data['image_size'] ?? null;
-		$image_width = 'custom' === $orientation ? $this->get_image_size( $image_size ) : null;
-		$max_width   = (int) ( 2400 / (int) $columns['lg'] / $side );
-
-		// If we have an image width, compare it to the max width by columns.
-		if ( $image_width ) {
-			$max_width = min( $max_width, $image_width * 2 );
-		}
-
-		// Get image aspect ratio.
-		$image_id    = null;
-		$orientation = $data['image_orientation'] ?? null;
-		$image_size  = $data['image_size'] ?? null;
-		$ratio       = $this->get_image_aspect_ratio( $orientation, $image_size );
-
-		// Setup tag processor.
-		$tags = new WP_HTML_Tag_Processor( $block_content );
-
-		// Loop through tags.
-		while ( $tags->next_tag( [ 'tag_name' => 'img', 'class_name' => 'entry-image' ] ) ) {
-			// Get image ID.
-			$image_id = $tags->get_attribute( 'data-mai-image-id' );
-			$image_id = $image_id ? (int) $image_id : null;
-		}
-
-		// Set args.
-		$image_args = [
-			'image_id'     => $image_id,
-			'aspect_ratio' => $ratio,
-			'max_width'    => $max_width,
-			'max_images'   => 0, // Process all images in the grid
-			'sizes'        => [
-				'mobile'  => (int) ( 100 / (int) $columns['sm'] ) . 'vw',
-				'tablet'  => (int) ( 100 / (int) $columns['md'] / $side ) . 'vw',
-				'desktop' => (int) ( 100 / (int) $columns['lg'] / $side ) . 'vw',
-			],
-		];
-
-		// Handle the image.
-		$block_content = $this->handle_image( $block_content, $image_args );
-
-		return $block_content;
-	}
-
-	/**
-	 * Get image aspect ratio.
-	 *
-	 * @since 0.2.0
-	 *
-	 * @param string|null $orientation The image orientation.
-	 * @param string|null $image_size  The image size.
-	 *
-	 * @return string|false
-	 */
-	public function get_image_aspect_ratio( ?string $orientation, ?string $image_size ): string {
-		/** @disregard P1010 */
-		$ratio = $orientation ? \mai_get_aspect_ratio_from_orientation( $orientation ) : false;
-		/** @disregard P1010 */
-		$ratio = ! $ratio && $image_size ? \mai_get_image_aspect_ratio( $image_size ) : $ratio;
-
-		return $ratio;
+	public function __construct() {
+		add_filter( 'mai_content_archive_settings', [ $this, 'add_archive_settings' ], 10, 2 );
+		add_filter( 'mai_single_content_settings',  [ $this, 'add_single_settings' ], 10, 2 );
+		add_action( 'acf/init',                     [ $this, 'add_grid_block_field_group' ] );
+		add_filter( 'mai_grid_args',                [ $this, 'add_grid_args' ] );
 	}
 
 	/**
 	 * Add archive settings.
 	 *
-	 * @since IDK
+	 * @since 0.3.0
 	 *
 	 * @param array $settings The settings.
 	 * @param string $name The name.
@@ -505,13 +50,13 @@ class MaiEngine extends Images {
 			$new = [
 				[
 					'settings'       => 'image_loading',
-					'label'          => 'Image Loading',
+					'label'          => esc_html__( 'Image Loading', 'mai-performance-images' ),
 					'type'           => 'select',
 					'default'        => '',
 					'choices'        => [
-						''      => esc_html__( 'Default', 'mai-performance-images' ),
-						'lazy'  => esc_html__( 'Lazy (for offscreen images)', 'mai-performance-images' ),
-						'eager' => esc_html__( 'Eager (loads immediately)', 'mai-performance-images' ),
+						''      => esc_html__( 'Automatic', 'mai-performance-images' ),
+						'lazy'  => esc_html__( 'Lazy (loads when scrolled near)', 'mai-performance-images' ),
+						'eager' => esc_html__( 'Eager (loads right away)', 'mai-performance-images' ),
 					],
 					'active_callback' => [
 						[
@@ -523,8 +68,8 @@ class MaiEngine extends Images {
 				],
 				[
 					'settings'        => 'image_loading_count',
-					'label'           => 'Image Loading Count',
-					'description'     => esc_html__( 'Enter the number of entries to eager load images for. The rest will be lazy loaded. Leave empty or use 0 to eagerload all images.', 'mai-performance-images' ),
+					'label'           => esc_html__( 'Image Loading Count', 'mai-performance-images' ),
+					'description'     => esc_html__( 'How many entries load their image right away. The rest load as visitors scroll. Leave empty to load them all right away.', 'mai-performance-images' ),
 					'type'            => 'text',
 					'sanitize'        => 'absint',
 					'default'         => '',
@@ -557,7 +102,7 @@ class MaiEngine extends Images {
 	/**
 	 * Add single settings.
 	 *
-	 * @since IDK
+	 * @since 0.3.0
 	 *
 	 * @param array $settings The settings.
 	 * @param string $name The name.
@@ -575,13 +120,13 @@ class MaiEngine extends Images {
 			$new = [
 				[
 					'settings'       => 'image_loading',
-					'label'          => 'Image Loading',
+					'label'          => esc_html__( 'Image Loading', 'mai-performance-images' ),
 					'type'           => 'select',
 					'default'        => '',
 					'choices'        => [
-						''      => esc_html__( 'Default', 'mai-performance-images' ),
-						'lazy'  => esc_html__( 'Lazy (for offscreen images)', 'mai-performance-images' ),
-						'eager' => esc_html__( 'Eager (loads immediately)', 'mai-performance-images' ),
+						''      => esc_html__( 'Automatic', 'mai-performance-images' ),
+						'lazy'  => esc_html__( 'Lazy (loads when scrolled near)', 'mai-performance-images' ),
+						'eager' => esc_html__( 'Eager (loads right away)', 'mai-performance-images' ),
 					],
 					'active_callback' => [
 						[
@@ -636,9 +181,9 @@ class MaiEngine extends Images {
 						'label'   => esc_html__( 'Image Loading', 'mai-performance-images' ),
 						'type'    => 'select',
 						'choices' => [
-							''      => esc_html__( 'Default', 'mai-performance-images' ),
-							'lazy'  => esc_html__( 'Lazy (for offscreen images)', 'mai-performance-images' ),
-							'eager' => esc_html__( 'Eager (loads immediately)', 'mai-performance-images' ),
+							''      => esc_html__( 'Automatic', 'mai-performance-images' ),
+							'lazy'  => esc_html__( 'Lazy (loads when scrolled near)', 'mai-performance-images' ),
+							'eager' => esc_html__( 'Eager (loads right away)', 'mai-performance-images' ),
 						],
 						'conditional_logic' => [
 							[
@@ -652,7 +197,7 @@ class MaiEngine extends Images {
 						'key'               => 'field_63f9a2b4c8d3e',
 						'name'              => 'image_loading_count',
 						'label'             => esc_html__( 'Image Loading Count', 'mai-performance-images' ),
-						'instructions'      => esc_html__( 'Enter the number of entries to eager load images for. The rest will be lazy loaded. Leave empty or use 0 to eagerload all images.', 'mai-performance-images' ),
+						'instructions'      => esc_html__( 'How many entries load their image right away. The rest load as visitors scroll. Leave empty to load them all right away.', 'mai-performance-images' ),
 						'type'              => 'number',
 						'conditional_logic' => [
 							[

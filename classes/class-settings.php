@@ -12,41 +12,13 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  */
 class Settings {
 	/**
-	 * The default options.
-	 *
-	 * @since 0.5.0
-	 *
-	 * @var array
-	 */
-	protected $defaults;
-
-	/**
-	 * The options.
-	 *
-	 * @since 0.5.0
-	 *
-	 * @var array
-	 */
-	protected $options;
-
-	/**
 	 * Construct the class.
+	 *
+	 * @since 0.5.0
 	 */
 	function __construct() {
-		$this->hooks();
-	}
-
-	/**
-	 * Add hooks.
-	 *
-	 * @since 0.5.0
-	 *
-	 * @return void
-	 */
-	function hooks() {
 		add_action( 'admin_menu', [ $this, 'add_menu_item' ], 12 );
 		add_action( 'admin_init', [ $this, 'init' ] );
-		add_action( 'wp_ajax_mai_performance_images_clear_cache', [ $this, 'ajax_clear_cache' ] );
 		add_filter( 'plugin_action_links_mai-performance-images/mai-performance-images.php', [ $this, 'add_plugin_links' ], 10, 4 );
 	}
 
@@ -60,7 +32,7 @@ class Settings {
 	function add_menu_item() {
 		add_options_page(
 			__( 'Mai Performance Images', 'mai-performance-images' ), // page_title
-			__( 'Mai Perf Images', 'mai-performance-images' ), // menu_title
+			__( 'Performance Images', 'mai-performance-images' ), // menu_title
 			'manage_options', // capability
 			'mai-performance-images', // menu_slug
 			[ $this, 'add_content' ], // callback
@@ -76,8 +48,7 @@ class Settings {
 	 */
 	function add_content() {
 		echo '<div class="wrap">';
-			printf( '<h2>%s</h2>', __( 'Mai Performance Images', 'mai-performance-images' ) );
-			printf( '<p>%s</p>', __( 'Configure image optimization settings for better performance.', 'mai-performance-images' ) );
+			printf( '<h2>%s</h2>', esc_html__( 'Mai Performance Images', 'mai-performance-images' ) );
 			echo '<form method="post" action="options.php">';
 				settings_fields( 'mai_performance_images_group' );
 				do_settings_sections( 'mai-performance-images-section' );
@@ -94,98 +65,26 @@ class Settings {
 	 * @return void
 	 */
 	function init() {
-		// Set defaults/options.
-		$this->defaults = get_default_options();
-		$this->options  = get_option( 'mai_performance_images', $this->defaults );
-		$this->options  = wp_parse_args( $this->options, $this->defaults );
-
-		// Register setting.
 		register_setting(
 			'mai_performance_images_group', // option_group
 			'mai_performance_images', // option_name
 			[ $this, 'sanitize' ] // sanitize_callback
 		);
 
-		/************
-		 * Sections *
-		 ************/
-
-		// Register section.
 		add_settings_section(
 			'mai_performance_images_general', // id
 			'', // title
-			[ $this, 'general_section_callback' ], // callback
+			'__return_empty_string', // callback
 			'mai-performance-images-section' // page
 		);
 
-		/************
-		 * Fields   *
-		 ************/
-
-		// Attributes.
 		add_settings_field(
 			'attributes', // id
-			__( 'Attributes', 'mai-performance-images' ), // title
+			__( 'Image loading', 'mai-performance-images' ), // title
 			[ $this, 'attributes_callback' ], // callback
 			'mai-performance-images-section', // page
 			'mai_performance_images_general' // section
 		);
-
-		// Conversion.
-		add_settings_field(
-			'conversion', // id
-			__( 'Conversion', 'mai-performance-images' ), // title
-			[ $this, 'conversion_callback' ], // callback
-			'mai-performance-images-section', // page
-			'mai_performance_images_general' // section
-		);
-
-		// Quality.
-		add_settings_field(
-			'quality', // id
-			__( 'Image Quality', 'mai-performance-images' ), // title
-			[ $this, 'quality_callback' ], // callback
-			'mai-performance-images-section', // page
-			'mai_performance_images_general' // section
-		);
-
-		// Cache Duration.
-		add_settings_field(
-			'cache_duration', // id
-			__( 'Cache Duration', 'mai-performance-images' ), // title
-			[ $this, 'cache_duration_callback' ], // callback
-			'mai-performance-images-section', // page
-			'mai_performance_images_general' // section
-		);
-
-		// Cache Management.
-		add_settings_field(
-			'cache_management', // id
-			__( 'Cache', 'mai-performance-images' ), // title
-			[ $this, 'cache_management_callback' ], // callback
-			'mai-performance-images-section', // page
-			'mai_performance_images_general' // section
-		);
-	}
-
-	/**
-	 * General section callback.
-	 *
-	 * @since 0.5.0
-	 *
-	 * @return void
-	 */
-	function general_section_callback() {
-		?>
-		<style>
-		.form-table:has(input[name="mai_performance_images[conversion]"]:not(:checked)) {
-			tr:has(input[name="mai_performance_images[quality]"]),
-			tr:has(input[name="mai_performance_images[cache_duration]"]) {
-				display: none;
-			}
-		}
-		</style>
-		<?php
 	}
 
 	/**
@@ -196,161 +95,13 @@ class Settings {
 	 * @return void
 	 */
 	function attributes_callback() {
-		$attributes = $this->options['attributes'];
 		?>
 		<label>
-			<input type="checkbox" name="mai_performance_images[attributes]" value="1" <?php checked( $attributes, 1 ); ?> />
-			<?php _e( 'Enable lazy/eager/priority attributes for images', 'mai-performance-images' ); ?>
+			<input type="checkbox" name="mai_performance_images[attributes]" value="1" <?php checked( is_attributes_enabled() ); ?> />
+			<?php esc_html_e( 'Load the first images right away and the rest as visitors scroll', 'mai-performance-images' ); ?>
 		</label>
-		<p class="description"><?php _e( 'Adds Customizer and block settings for image lazy/eager loading.', 'mai-performance-images' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Also adds an Image Loading choice to image blocks, Mai grids and the Customizer.', 'mai-performance-images' ); ?></p>
 		<?php
-	}
-
-	/**
-	 * Conversion field callback.
-	 *
-	 * @since 0.5.0
-	 *
-	 * @return void
-	 */
-	function conversion_callback() {
-		$conversion = $this->options['conversion'];
-		?>
-		<label>
-			<input type="checkbox" name="mai_performance_images[conversion]" value="1" <?php checked( $conversion, 1 ); ?> />
-			<?php _e( 'Enable image conversion to WebP', 'mai-performance-images' ); ?>
-		</label>
-		<p class="description"><?php _e( 'Images will be converted to appropriately sized WebP images on the fly and stored in `wp-content/uploads/mai-performance-images` directory.', 'mai-performance-images' ); ?></p>
-		<?php
-	}
-
-	/**
-	 * WebP quality field callback.
-	 *
-	 * @since 0.5.0
-	 *
-	 * @return void
-	 */
-	function quality_callback() {
-		$quality = $this->options['quality'];
-		?>
-		<input type="number" name="mai_performance_images[quality]" value="<?php echo esc_attr( $quality ); ?>" min="1" max="100" />
-		<p class="description"><?php _e( 'WebP image quality (1-100). Higher values mean better quality but larger file sizes. Default is 80. Changing this value will not affect existing images until they are regenerated after the cache duration expires. Delete the `mai-performance-images` directory to force regeneration of all images.', 'mai-performance-images' ); ?></p>
-		<?php
-	}
-
-	/**
-	 * Cache duration field callback.
-	 *
-	 * @since 0.5.0
-	 *
-	 * @return void
-	 */
-	function cache_duration_callback() {
-		$cache_duration = $this->options['cache_duration'];
-		?>
-		<input type="number" name="mai_performance_images[cache_duration]" value="<?php echo esc_attr( $cache_duration ); ?>" min="1" max="365" />
-		<p class="description"><?php _e( 'Number of days to keep cached images before they are automatically deleted and regenerated. Default is 30 days and max is 365 days. This helps manage disk space by removing old, unused images.', 'mai-performance-images' ); ?></p>
-		<?php
-	}
-
-	/**
-	 * Cache management field callback.
-	 *
-	 * @since 0.6.0
-	 *
-	 * @return void
-	 */
-	function cache_management_callback() {
-		$cache_manager = new ImageCacheManager();
-		$count         = $cache_manager->get_cache_file_count();
-		?>
-		<div id="mai-performance-images-cache-management">
-			<p>
-				<span id="mai-performance-images-cache-count">
-					<?php
-					printf(
-						/* translators: %s: number of cached files. */
-						_n( '%s cached file.', '%s cached files.', $count, 'mai-performance-images' ),
-						number_format_i18n( $count )
-					);
-					?>
-				</span>
-			</p>
-			<?php if ( $count ) { ?>
-				<p>
-					<button type="button" class="button" id="mai-performance-images-clear-cache">
-						<?php _e( 'Clear Cached Images', 'mai-performance-images' ); ?>
-					</button>
-					<span id="mai-performance-images-clear-status"></span>
-				</p>
-			<?php } ?>
-		</div>
-		<script>
-		document.addEventListener( 'DOMContentLoaded', function() {
-			var button = document.getElementById( 'mai-performance-images-clear-cache' );
-			if ( ! button ) return;
-
-			button.addEventListener( 'click', function() {
-				if ( ! confirm( '<?php echo esc_js( __( 'Are you sure you want to delete all cached images? They will be regenerated as needed.', 'mai-performance-images' ) ); ?>' ) ) {
-					return;
-				}
-
-				var status = document.getElementById( 'mai-performance-images-clear-status' );
-				button.disabled = true;
-				status.textContent = '<?php echo esc_js( __( 'Clearing...', 'mai-performance-images' ) ); ?>';
-
-				fetch( ajaxurl, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-					body: new URLSearchParams({
-						action: 'mai_performance_images_clear_cache',
-						nonce: '<?php echo wp_create_nonce( 'mai_performance_images_clear_cache' ); ?>'
-					})
-				})
-				.then( function( response ) { return response.json(); })
-				.then( function( data ) {
-					if ( data.success ) {
-						document.getElementById( 'mai-performance-images-cache-count' ).textContent = data.data.message;
-						status.textContent = '';
-						button.remove();
-					} else {
-						status.textContent = data.data.message || '<?php echo esc_js( __( 'Error clearing cache.', 'mai-performance-images' ) ); ?>';
-						button.disabled = false;
-					}
-				})
-				.catch( function() {
-					status.textContent = '<?php echo esc_js( __( 'Error clearing cache.', 'mai-performance-images' ) ); ?>';
-					button.disabled = false;
-				});
-			});
-		});
-		</script>
-		<?php
-	}
-
-	/**
-	 * AJAX handler for clearing the cache.
-	 *
-	 * @since 0.6.0
-	 *
-	 * @return void
-	 */
-	function ajax_clear_cache() {
-		if ( ! current_user_can( 'manage_options' ) || ! check_ajax_referer( 'mai_performance_images_clear_cache', 'nonce', false ) ) {
-			wp_send_json_error( [ 'message' => __( 'Unauthorized.', 'mai-performance-images' ) ] );
-		}
-
-		$cache_manager = new ImageCacheManager();
-		$removed       = $cache_manager->clear_all();
-
-		wp_send_json_success( [
-			'message' => sprintf(
-				/* translators: %s: number of files removed. */
-				_n( '%s file removed.', '%s files removed.', $removed, 'mai-performance-images' ),
-				number_format_i18n( $removed )
-			),
-		] );
 	}
 
 	/**
@@ -358,20 +109,17 @@ class Settings {
 	 *
 	 * @since 0.5.0
 	 *
-	 * @param array $input The input array.
+	 * @param mixed $input The input array.
 	 *
 	 * @return array The sanitized array.
 	 */
 	function sanitize( $input ) {
-		$sanitized = [];
+		$input = is_array( $input ) ? $input : [];
 
-		// Sanitize. The boolean fields are not in the input array if they are not set (unchecked).
-		$sanitized['conversion']     = isset( $input['conversion'] ) ? rest_sanitize_boolean( $input['conversion'] ) : false;
-		$sanitized['attributes']     = isset( $input['attributes'] ) ? rest_sanitize_boolean( $input['attributes'] ) : false;
-		$sanitized['quality']        = isset( $input['quality'] ) ? max( 1, min( 100, (int) $input['quality'] ) ) : $this->defaults['quality'];
-		$sanitized['cache_duration'] = isset( $input['cache_duration'] ) ? max( 1, min( 365, (int) $input['cache_duration'] ) ) : $this->defaults['cache_duration'];
-
-		return $sanitized;
+		// An unchecked box is not in the input at all.
+		return [
+			'attributes' => isset( $input['attributes'] ) && rest_sanitize_boolean( $input['attributes'] ),
+		];
 	}
 
 	/**

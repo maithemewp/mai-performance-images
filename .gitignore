@@ -59,7 +59,6 @@ mix-manifest.json
 /vendor/*
 !/vendor/autoload.php
 !/vendor/composer/
-!/vendor/intervention/
 !/vendor/yahnis-elsts/
 # Auto-regenerates with the current git ref, so tracking it dirties
 # the tree after every commit.
@@ -77,8 +76,10 @@ mix-manifest.json
 /vendor/composer/xdebug-handler/
 
 # Strauss-prefixed runtime dependencies (committed; ship without a build step).
-!/vendor-prefixed/
 
 # Strauss binary self-downloads via the composer scripts.
-bin/strauss.phar
 .githooks/
+
+# Test-only dependencies and caches. See tests/composer.json.
+/tests/vendor/
+/.phpunit.cache/

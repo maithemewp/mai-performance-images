@@ -1,10 +1,13 @@
 {
     "name": "maitheme/mai-performance-images",
-    "description": "Optimizes image delivery through automatic resizing and WebP conversion with static file caching.",
+    "description": "Loads the first images on each page right away and lazy loads the rest.",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
     "repositories": [
-        { "type": "vcs", "url": "https://github.com/bizbudding/deployable-guard" }
+        {
+            "type": "vcs",
+            "url": "https://github.com/bizbudding/deployable-guard"
+        }
     ],
     "authors": [
         {
@@ -13,59 +16,31 @@
         }
     ],
     "require": {
-        "php": ">=8.0",
-        "intervention/image": "^3.0",
-        "deliciousbrains/wp-background-processing": "^1.4",
+        "php": ">=8.1",
         "yahnis-elsts/plugin-update-checker": "^5.5"
     },
     "require-dev": {
-        "brianhenryie/strauss": "^0.26.2",
         "bizbudding/deployable-guard": "^1"
     },
     "autoload": {
         "psr-4": {
-            "Mai\\PerformanceImages\\": "classes/",
-            "Mai\\PerformanceImages\\dependencies\\": "classes/dependencies/"
+            "Mai\\PerformanceImages\\": "classes/"
         },
         "classmap": [
             "classes/"
-        ],
-        "exclude-from-classmap": [
-            "vendor/deliciousbrains/wp-background-processing/"
         ]
     },
-    "extra": {
-        "strauss": {
-            "target_directory": "vendor-prefixed",
-            "namespace_prefix": "Mai\\PerformanceImages\\dependencies\\",
-            "classmap_prefix": "MaiPerformanceImages_",
-            "delete_vendor_packages": true,
-            "packages": [
-                "deliciousbrains/wp-background-processing"
-            ]
-        }
-    },
     "scripts": {
-        "download-strauss": [
-            "sh -c 'test -f ./bin/strauss.phar || curl -o bin/strauss.phar -L -C - https://github.com/BrianHenryIE/strauss/releases/latest/download/strauss.phar'"
-        ],
-        "prefix-namespaces": [
-            "@download-strauss",
-            "@php bin/strauss.phar",
-            "@composer dump-autoload --no-dev"
-        ],
         "install-git-hooks": [
             "sh -c 'test -f vendor/bin/deployable-guard && php vendor/bin/deployable-guard install-hook || true'"
         ],
         "post-install-cmd": [
-            "@download-strauss",
-            "@prefix-namespaces",
             "@install-git-hooks"
         ],
         "post-update-cmd": [
-            "@download-strauss",
-            "@prefix-namespaces",
             "@install-git-hooks"
-        ]
+        ],
+        "test-setup": "composer install -d tests",
+        "test": "tests/vendor/bin/phpunit --configuration tests/phpunit.xml.dist"
     }
 }
