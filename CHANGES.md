@@ -5,7 +5,8 @@
 ### Changed
 
 - **The plugin now decides loading for every image on the page.** The first three images load right away and the first gets high priority. Logos load right away without taking a spot, and avatars lazy load.
-- **Grids, ads and other images built mid-content are counted where they sit on the page.** Before, a grid could take the top spots from the cover image above it.
+- **Grids, ads and other images built mid-content are counted where they sit on the page.** That covers post content, Mai template parts, content areas and descriptions, and block theme templates. Before, a grid could take the top spots from the cover image above it.
+- **An image already marked high priority keeps it,** and an image under 50,000 square pixels, such as an icon, never takes it.
 - **"Default" is now called "Automatic"** in the Image Loading choices, and the other choices say what they do.
 - **A lazy grid or archive no longer uses up the top spots,** so the images after it still load right away.
 
