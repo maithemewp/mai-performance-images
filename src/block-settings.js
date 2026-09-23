@@ -76,7 +76,7 @@ addFilter(
 								{ label: __('Eager (loads right away)', 'mai-performance-images'), value: 'eager' },
 							]}
 							onChange={(value) => setAttributes({ imgLoading: value })}
-							help={__('Controls how the browser loads this image.')}
+							help={__('Controls how the browser loads this image.', 'mai-performance-images')}
 						/>
 					</div>
 				</InspectorControls>
