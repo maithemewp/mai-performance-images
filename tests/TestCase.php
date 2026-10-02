@@ -13,15 +13,6 @@ use WP_UnitTestCase;
 abstract class TestCase extends WP_UnitTestCase {
 
 	/**
-	 * Starts every test with an untouched page: no images counted, high priority free.
-	 */
-	public function set_up(): void {
-		parent::set_up();
-
-		LoadingAttributes::instance()->get_budget()->reset();
-	}
-
-	/**
 	 * Creates an image attachment with size data, without writing a file.
 	 *
 	 * @param int $width  The original width.
@@ -50,6 +41,47 @@ abstract class TestCase extends WP_UnitTestCase {
 		);
 
 		return $id;
+	}
+
+	/**
+	 * Renders a page the way a real request does, inside WordPress's own page buffer.
+	 *
+	 * The plugin adds its page filter on wp_before_include_template, and WordPress
+	 * then starts the buffer. Whatever the callback prints or returns is the page.
+	 * Closing the buffer runs wp_template_enhancement_output_buffer over it.
+	 *
+	 * @param callable $render Prints the page, or returns it.
+	 *
+	 * @return string The page as the visitor gets it.
+	 */
+	protected function page( callable $render ): string {
+		LoadingAttributes::instance()->add_page_filter();
+
+		ob_start();
+
+		if ( ! wp_start_template_enhancement_output_buffer() ) {
+			ob_end_clean();
+			$this->fail( 'WordPress did not start the page buffer.' );
+		}
+
+		try {
+			echo (string) $render();
+		} finally {
+			ob_end_flush();
+		}
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Runs finished HTML through the plugin's page filter.
+	 *
+	 * @param string $html The page.
+	 *
+	 * @return string
+	 */
+	protected function filter_page( string $html ): string {
+		return LoadingAttributes::instance()->filter_page( $html );
 	}
 
 	/**
@@ -91,6 +123,15 @@ abstract class TestCase extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Asserts the HTML carries no marker anywhere.
+	 *
+	 * @param string $html The HTML.
+	 */
+	protected function assertNoMarkers( string $html ): void {
+		$this->assertStringNotContainsString( LoadingAttributes::MARKER, $html );
+	}
+
+	/**
 	 * A static image tag, as a saved block would have it.
 	 *
 	 * @param int    $n     A number to make the src unique.
@@ -100,6 +141,19 @@ abstract class TestCase extends WP_UnitTestCase {
 	 */
 	protected function static_image( int $n, string $extra = '' ): string {
 		return sprintf( '<img src="https://example.org/static-%d.jpg" width="1024" height="683" alt="" %s/>', $n, $extra );
+	}
+
+	/**
+	 * A Mai Engine page header image, built the way Mai Engine builds it.
+	 *
+	 * Mai tags it with a small fallback size, here 300x109, while it shows full width.
+	 *
+	 * @param array $attr Extra or replacement attributes.
+	 *
+	 * @return string
+	 */
+	protected function page_header_image( array $attr = [] ): string {
+		return wp_get_attachment_image( $this->create_image( 300, 109 ), 'full', false, $attr + [ 'class' => 'page-header-image', 'sizes' => '100vw' ] );
 	}
 
 	/**

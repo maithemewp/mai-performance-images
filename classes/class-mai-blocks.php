@@ -45,7 +45,7 @@ final class MaiBlocks {
 		$tags = new WP_HTML_Tag_Processor( $block_content );
 
 		while ( $tags->next_tag( [ 'tag_name' => 'img' ] ) ) {
-			LoadingAttributes::instance()->apply_to_tag( $tags, 'lazy' );
+			LoadingAttributes::instance()->apply_choice( $tags, 'lazy' );
 		}
 
 		return $tags->get_updated_html();

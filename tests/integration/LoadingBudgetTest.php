@@ -50,44 +50,24 @@ final class LoadingBudgetTest extends TestCase {
 		$this->assertSame( 'lazy', $budget->next()['loading'] );
 	}
 
-	public function test_keeping_an_answered_image_spends_nothing(): void {
+	public function test_an_image_marked_high_spends_a_slot_and_the_high_spot(): void {
 		$budget = new LoadingBudget();
 
-		$this->assertSame( [ 'loading' => 'eager' ], $budget->keep( 'eager', 'high' ) );
+		$this->assertSame( [ 'loading' => 'eager', 'fetchpriority' => 'high', 'decoding' => 'sync' ], $budget->take_high() );
 
-		// High was already on the kept image, so the next image does not get it.
 		$next = $budget->next();
-		$this->assertSame( 'eager', $next['loading'] );
 		$this->assertArrayNotHasKey( 'fetchpriority', $next );
 
-		$budget->next();
 		$budget->next();
 		$this->assertSame( 'lazy', $budget->next()['loading'] );
 	}
 
-	public function test_a_kept_eager_image_without_priority_takes_high_when_it_is_free(): void {
-		$budget = new LoadingBudget();
-
-		$this->assertSame( 'high', $budget->keep( 'eager', '' )['fetchpriority'] );
-	}
-
-	public function test_released_high_goes_to_the_next_eager_image(): void {
-		$budget = new LoadingBudget();
-
-		$budget->next();
-		$budget->release_high();
-
-		$this->assertSame( 'high', $budget->next()['fetchpriority'] );
-	}
-
 	public function test_logos_and_avatars_are_known_by_context_or_class(): void {
-		$budget = new LoadingBudget();
-
-		$this->assertSame( 'logo', $budget->kind( [], 'mai_logo' ) );
-		$this->assertSame( 'logo', $budget->kind( [ 'class' => 'custom-logo' ], 'wp_get_attachment_image' ) );
-		$this->assertSame( 'avatar', $budget->kind( [], 'get_avatar' ) );
-		$this->assertSame( 'avatar', $budget->kind( [ 'class' => 'avatar avatar-48 photo' ], 'wp_get_attachment_image' ) );
-		$this->assertSame( '', $budget->kind( [ 'class' => 'avatar-card-image' ], 'wp_get_attachment_image' ) );
+		$this->assertSame( 'logo', LoadingBudget::kind( [], 'mai_logo' ) );
+		$this->assertSame( 'logo', LoadingBudget::kind( [ 'class' => 'custom-logo' ] ) );
+		$this->assertSame( 'avatar', LoadingBudget::kind( [], 'get_avatar' ) );
+		$this->assertSame( 'avatar', LoadingBudget::kind( [ 'class' => 'avatar avatar-48 photo' ] ) );
+		$this->assertSame( '', LoadingBudget::kind( [ 'class' => 'avatar-card-image' ], 'wp_get_attachment_image' ) );
 	}
 
 	public function test_a_logo_loads_right_away_without_priority_and_an_avatar_lazy_loads(): void {
@@ -98,12 +78,12 @@ final class LoadingBudgetTest extends TestCase {
 		$this->assertSame( 'high', $budget->next()['fetchpriority'] );
 	}
 
-	public function test_reset_starts_the_page_over(): void {
+	public function test_the_high_spot_respects_the_core_pixel_filter(): void {
+		add_filter( 'wp_min_priority_img_pixels', fn() => 1000000 );
+
 		$budget = new LoadingBudget();
 
-		array_map( fn() => $budget->next(), range( 1, 4 ) );
-		$budget->reset();
-
-		$this->assertSame( 'high', $budget->next()['fetchpriority'] );
+		$this->assertArrayNotHasKey( 'fetchpriority', $budget->next( [ 'width' => 1200, 'height' => 800 ] ) );
+		$this->assertSame( 'high', $budget->next( [ 'width' => 1500, 'height' => 1000 ] )['fetchpriority'] );
 	}
 }

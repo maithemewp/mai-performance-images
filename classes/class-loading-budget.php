@@ -16,12 +16,19 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  *
  * Two rules, both borrowed from core because both are sound:
  *
- * 1. The first few images WordPress asks about load immediately, the rest lazy
- *    load. LoadingAttributes makes sure that order is page order.
+ * 1. The first few images on the page load immediately, the rest lazy load.
+ *    LoadingAttributes asks once per image, top to bottom, on the finished page.
  * 2. At most one image gets fetchpriority="high". The hint is a ranking, so marking
  *    ten images high says the same as marking none.
  *
+ * A page with an image configured Eager follows its configuration instead of rule
+ * 1. Its Eager images load immediately and every image nobody chose for lazy
+ * loads. Rule 2 still holds.
+ *
+ * One budget covers one page.
+ *
  * @since 0.7.0
+ * @since 0.8.0 Follows the configuration on a page with an image configured Eager.
  */
 final class LoadingBudget {
 	/**
@@ -76,23 +83,36 @@ final class LoadingBudget {
 	private ?int $eager_count = null;
 
 	/**
+	 * Constructor.
+	 *
+	 * @since 0.8.0
+	 *
+	 * @param bool $configured Whether the page has an image configured Eager. Then
+	 *                         next() lazy loads instead of counting.
+	 */
+	public function __construct(
+		public readonly bool $configured = false
+	) {}
+
+	/**
 	 * Returns what kind of image this is, when the kind decides its loading.
 	 *
 	 * A logo is never the largest painted element, and neither is an avatar, so
 	 * neither spends a slot. A logo sits in the header and loads right away. An
 	 * avatar is usually in a comment list and lazy loads.
 	 *
-	 * Only images built by wp_get_attachment_image() or get_avatar() carry a class
-	 * or a context to go on. WordPress's pass over finished HTML passes neither.
+	 * The context is only known while a tag is built. The class is on the tag, so
+	 * it is known on the finished page too.
 	 *
 	 * @since 0.7.0
+	 * @since 0.8.0 Static, and the context is optional.
 	 *
 	 * @param array  $attr    The attributes for the tag.
-	 * @param string $context The context for the element.
+	 * @param string $context The context for the element, if known.
 	 *
 	 * @return string 'logo', 'avatar', or an empty string.
 	 */
-	public function kind( array $attr, string $context ): string {
+	public static function kind( array $attr, string $context = '' ): string {
 		$classes = self::classes( $attr );
 
 		if ( in_array( $context, self::LOGO_CONTEXTS, true ) || array_intersect( self::LOGO_CLASSES, $classes ) ) {
@@ -107,30 +127,23 @@ final class LoadingBudget {
 	}
 
 	/**
-	 * Returns the attributes for an image of a kind that never spends a slot.
-	 *
-	 * @since 0.7.0
-	 *
-	 * @param string $kind 'logo' or 'avatar'.
-	 *
-	 * @return array
-	 */
-	public function for_kind( string $kind ): array {
-		return 'logo' === $kind ? $this->decline() : $this->lazy();
-	}
-
-	/**
 	 * Takes the next slot and returns the attributes for it.
 	 *
-	 * Call once per image that counts.
+	 * Call once per image that counts. On a page that follows its configuration,
+	 * nothing is counted: an image nobody chose for lazy loads.
 	 *
 	 * @since 0.7.0
+	 * @since 0.8.0 Lazy on a page that follows its configuration.
 	 *
 	 * @param array $attr The attributes for the tag, for its width and height.
 	 *
 	 * @return array
 	 */
 	public function next( array $attr = [] ): array {
+		if ( $this->configured ) {
+			return $this->lazy();
+		}
+
 		$this->counted++;
 
 		if ( $this->counted > $this->get_eager_count() ) {
@@ -148,20 +161,22 @@ final class LoadingBudget {
 	 * the top of the page.
 	 *
 	 * @since 0.7.0
+	 * @since 0.8.0 Can skip the size floor for high priority.
 	 *
 	 * @param string $loading Either 'eager' or 'lazy'.
 	 * @param array  $attr    The attributes for the tag, for its width and height.
+	 * @param bool   $floor   Whether the image must be big enough for high priority.
 	 *
 	 * @return array
 	 */
-	public function take( string $loading, array $attr = [] ): array {
+	public function take( string $loading, array $attr = [], bool $floor = true ): array {
 		if ( 'eager' !== $loading ) {
 			return $this->lazy();
 		}
 
 		$this->counted++;
 
-		return $this->eager( $attr );
+		return $this->eager( $attr, $floor );
 	}
 
 	/**
@@ -186,49 +201,34 @@ final class LoadingBudget {
 	}
 
 	/**
-	 * Returns the attributes for an image that already carries its loading value.
-	 *
-	 * This is WordPress asking again about an image this plugin answered while the
-	 * tag was built, or an image a block wrote its choice onto. Neither spends a
-	 * slot, which is also what core does. An eager image may still take high
-	 * priority, when no image has it yet.
+	 * Returns the attributes for a logo or an avatar, which never spend a slot.
 	 *
 	 * @since 0.7.0
 	 *
-	 * @param string $loading       Either 'eager' or 'lazy'.
-	 * @param string $fetchpriority The fetchpriority already on the image, if any.
-	 * @param array  $attr          The attributes for the tag, for its width and height.
+	 * @param string $kind 'logo' or 'avatar'.
 	 *
 	 * @return array
 	 */
-	public function keep( string $loading, string $fetchpriority, array $attr = [] ): array {
-		if ( 'lazy' === $loading ) {
-			return $this->lazy();
-		}
-
-		if ( 'high' === $fetchpriority ) {
-			$this->high_used = true;
-		}
-
-		if ( $fetchpriority ) {
-			return [ 'loading' => 'eager' ];
-		}
-
-		return $this->eager( $attr );
+	public function for_kind( string $kind ): array {
+		return 'logo' === $kind ? $this->decline() : $this->lazy();
 	}
 
 	/**
-	 * Gives back the high-priority slot.
+	 * Returns the attributes for a lazy loaded image.
 	 *
-	 * Used when a block forces lazy loading onto an image after it was given high
-	 * priority, so the next eager image can have it instead.
+	 * No fetchpriority, so a lazy image that turns out to be in view is not held
+	 * back.
 	 *
 	 * @since 0.7.0
+	 * @since 0.8.0 Public, for choices that spend nothing.
 	 *
-	 * @return void
+	 * @return array
 	 */
-	public function release_high(): void {
-		$this->high_used = false;
+	public function lazy(): array {
+		return [
+			'loading'  => 'lazy',
+			'decoding' => 'async',
+		];
 	}
 
 	/**
@@ -239,18 +239,20 @@ final class LoadingBudget {
 	 * Without a width and height the image is given the benefit of the doubt.
 	 *
 	 * @since 0.7.0
+	 * @since 0.8.0 Can skip the size floor.
 	 *
-	 * @param array $attr The attributes for the tag, for its width and height.
+	 * @param array $attr  The attributes for the tag, for its width and height.
+	 * @param bool  $floor Whether the image must be big enough for high priority.
 	 *
 	 * @return array
 	 */
-	private function eager( array $attr = [] ): array {
+	private function eager( array $attr = [], bool $floor = true ): array {
 		$attrs = [
 			'loading'  => 'eager',
 			'decoding' => 'sync',
 		];
 
-		if ( ! $this->high_used && $this->big_enough( $attr ) ) {
+		if ( ! $this->high_used && ( ! $floor || $this->big_enough( $attr ) ) ) {
 			$this->high_used        = true;
 			$attrs['fetchpriority'] = 'high';
 		}
@@ -279,28 +281,10 @@ final class LoadingBudget {
 	}
 
 	/**
-	 * Returns the attributes for a lazy loaded image.
-	 *
-	 * No fetchpriority, so a lazy image that turns out to be in view is not held
-	 * back.
-	 *
-	 * @since 0.7.0
-	 *
-	 * @return array
-	 */
-	private function lazy(): array {
-		return [
-			'loading'  => 'lazy',
-			'decoding' => 'async',
-		];
-	}
-
-	/**
 	 * Returns the attributes for an image that loads immediately without a slot.
 	 *
 	 * "auto" is WordPress's own way of saying an image may or may not be visible.
-	 * It keeps the image out of the running for high priority, and WordPress does
-	 * not count an image that carries it.
+	 * It keeps the image out of the running for high priority.
 	 *
 	 * @since 0.7.0
 	 *
@@ -341,21 +325,6 @@ final class LoadingBudget {
 		$this->eager_count = max( 1, (int) apply_filters( 'mai_performance_images_eager_count', $default ) );
 
 		return $this->eager_count;
-	}
-
-	/**
-	 * Starts the count over.
-	 *
-	 * For anything that renders a second page in the same request.
-	 *
-	 * @since 0.7.0
-	 *
-	 * @return void
-	 */
-	public function reset(): void {
-		$this->counted     = 0;
-		$this->high_used   = false;
-		$this->eager_count = null;
 	}
 
 	/**

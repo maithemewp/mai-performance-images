@@ -64,9 +64,8 @@ final class ImageLoading {
 	/**
 	 * Writes an editor's Lazy or Eager choice onto a block's image.
 	 *
-	 * Inside post content, WordPress then reads the value in its pass over the
-	 * content. Outside it, the tag was already answered, so apply_to_tag() also
-	 * takes back what a lazy image should not keep.
+	 * While WordPress collects the page, the choice goes on as a marker that the
+	 * walk over the finished page reads. Otherwise it is applied straight away.
 	 *
 	 * @since 0.1.0
 	 *
@@ -76,7 +75,7 @@ final class ImageLoading {
 	 * @return string The block content.
 	 */
 	public function render_loading_attribute( $block_content, $block ) {
-		// Get the img loading attribute. An empty value is the editor's "Default",
+		// Get the img loading attribute. An empty value is the editor's "Automatic",
 		// which hands the decision to LoadingAttributes rather than forcing lazy.
 		$loading = $block['attrs']['imgLoading'] ?? '';
 
@@ -107,7 +106,7 @@ final class ImageLoading {
 
 		// Loop through tags.
 		while ( $tags->next_tag( $args ) ) {
-			LoadingAttributes::instance()->apply_to_tag( $tags, $loading );
+			LoadingAttributes::instance()->apply_choice( $tags, $loading );
 		}
 
 		// Get updated block content.
