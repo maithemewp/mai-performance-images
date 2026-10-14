@@ -15,6 +15,7 @@ How it decides:
 Spec: `docs/specs/2026-10-14-one-main-image.md`. Plan: `docs/plans/2026-10-14-one-main-image.md`.
 
 ## Next
+- Settings audit, October 14 (`/tmp/mpi-audit.sh` and `/tmp/mpi-analyze.php`, gone after a reboot): fixed eurweb's and mynorth's extra Eager home page grids, Eager archive counts over 1 on mynorth, verilymag and insidetailgating, and wnbatake's menu icons (its theme now passes `fetchpriority="auto"`). Left alone: 50 harmless leftovers that act like Automatic, and the dev copies.
 - Check in a few days that the 0.7.0 sites updated: `mai-sites plugins list mai-performance-images`. 23 sites never updated past 0.2.0 to 0.6.0, and nobody knows why. Find the cause if the 0.7.0 sites don't move either.
 - Remove the `mai_publisher_html` late pass once https://github.com/bizbudding/mai-publisher/issues/62 lands.
 - Check mai-content-areas on real block theme content.
