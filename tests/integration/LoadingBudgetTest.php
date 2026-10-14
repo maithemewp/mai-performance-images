@@ -12,11 +12,11 @@ use Mai\PerformanceImages\Tests\TestCase;
  */
 final class LoadingBudgetTest extends TestCase {
 
-	public function test_first_three_load_right_away_and_only_the_first_is_high(): void {
+	public function test_the_first_image_loads_right_away_with_high_and_the_rest_lazy_load(): void {
 		$budget  = new LoadingBudget();
 		$answers = array_map( fn() => $budget->next(), range( 1, 5 ) );
 
-		$this->assertSame( [ 'eager', 'eager', 'eager', 'lazy', 'lazy' ], array_column( $answers, 'loading' ) );
+		$this->assertSame( [ 'eager', 'lazy', 'lazy', 'lazy', 'lazy' ], array_column( $answers, 'loading' ) );
 		$this->assertSame( 'high', $answers[0]['fetchpriority'] );
 		$this->assertArrayNotHasKey( 'fetchpriority', $answers[1] );
 	}
@@ -32,6 +32,8 @@ final class LoadingBudgetTest extends TestCase {
 	}
 
 	public function test_a_chosen_lazy_image_does_not_spend_a_slot(): void {
+		add_filter( 'mai_performance_images_eager_count', fn() => 3 );
+
 		$budget = new LoadingBudget();
 
 		$budget->take( 'lazy' );
@@ -44,9 +46,6 @@ final class LoadingBudgetTest extends TestCase {
 		$budget = new LoadingBudget();
 
 		$this->assertSame( 'high', $budget->take( 'eager' )['fetchpriority'] );
-		$budget->next();
-		$budget->next();
-
 		$this->assertSame( 'lazy', $budget->next()['loading'] );
 	}
 
@@ -55,11 +54,7 @@ final class LoadingBudgetTest extends TestCase {
 
 		$this->assertSame( [ 'loading' => 'eager', 'fetchpriority' => 'high', 'decoding' => 'sync' ], $budget->take_high() );
 
-		$next = $budget->next();
-		$this->assertArrayNotHasKey( 'fetchpriority', $next );
-
-		$budget->next();
-		$this->assertSame( 'lazy', $budget->next()['loading'] );
+		$this->assertSame( [ 'loading' => 'lazy', 'decoding' => 'async' ], $budget->next() );
 	}
 
 	public function test_logos_and_avatars_are_known_by_context_or_class(): void {
@@ -79,6 +74,7 @@ final class LoadingBudgetTest extends TestCase {
 	}
 
 	public function test_the_high_spot_respects_the_core_pixel_filter(): void {
+		add_filter( 'mai_performance_images_eager_count', fn() => 2 );
 		add_filter( 'wp_min_priority_img_pixels', fn() => 1000000 );
 
 		$budget = new LoadingBudget();

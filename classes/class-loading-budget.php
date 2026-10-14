@@ -16,8 +16,10 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  *
  * Two rules, both borrowed from core because both are sound:
  *
- * 1. The first few images on the page load immediately, the rest lazy load.
- *    LoadingAttributes asks once per image, top to bottom, on the finished page.
+ * 1. The first image on the page loads immediately, the rest lazy load. Core
+ *    loads three, but on phones only the first is on screen, and every extra
+ *    image downloading at the same time slows it down. LoadingAttributes asks
+ *    once per image, top to bottom, on the finished page.
  * 2. At most one image gets fetchpriority="high". The hint is a ranking, so marking
  *    ten images high says the same as marking none.
  *
@@ -29,6 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  *
  * @since 0.7.0
  * @since 0.8.0 Follows the configuration on a page with an image configured Eager.
+ * @since 0.8.0 One image by default instead of WordPress's three.
  */
 final class LoadingBudget {
 	/**
@@ -95,11 +98,23 @@ final class LoadingBudget {
 	) {}
 
 	/**
+	 * How many spots have been taken so far.
+	 *
+	 * @since 0.8.0
+	 *
+	 * @return int
+	 */
+	public function spent(): int {
+		return $this->counted;
+	}
+
+	/**
 	 * Returns what kind of image this is, when the kind decides its loading.
 	 *
 	 * A logo is never the largest painted element, and neither is an avatar, so
-	 * neither spends a slot. A logo sits in the header and loads right away. An
-	 * avatar is usually in a comment list and lazy loads.
+	 * neither spends a slot. A logo loads right away when it sits above the main
+	 * image, such as in the header. An avatar is usually in a comment list and
+	 * lazy loads.
 	 *
 	 * The context is only known while a tag is built. The class is on the tag, so
 	 * it is known on the finished page too.
@@ -264,12 +279,13 @@ final class LoadingBudget {
 	 * Whether an image is big enough to be the page's main image.
 	 *
 	 * @since 0.7.0
+	 * @since 0.8.0 Public, so a small image can be kept from taking a slot.
 	 *
 	 * @param array $attr The attributes for the tag.
 	 *
 	 * @return bool
 	 */
-	private function big_enough( array $attr ): bool {
+	public function big_enough( array $attr ): bool {
 		if ( ! isset( $attr['width'], $attr['height'] ) ) {
 			return true;
 		}
@@ -287,10 +303,11 @@ final class LoadingBudget {
 	 * It keeps the image out of the running for high priority.
 	 *
 	 * @since 0.7.0
+	 * @since 0.8.0 Public, for small images above the main image.
 	 *
 	 * @return array
 	 */
-	private function decline(): array {
+	public function decline(): array {
 		return [
 			'loading'       => 'eager',
 			'fetchpriority' => 'auto',
@@ -301,10 +318,12 @@ final class LoadingBudget {
 	/**
 	 * How many images load immediately before the rest lazy load.
 	 *
-	 * Defaults to WordPress's own threshold so an unconfigured site behaves the way
-	 * WordPress would, only with better judgement about which images qualify.
+	 * Defaults to one, the page's main image. WordPress's own threshold of three
+	 * is not used, because measured on a Mai archive, one loaded the main image
+	 * sooner on phones and made no difference on desktop.
 	 *
 	 * @since 0.7.0
+	 * @since 0.8.0 Defaults to one instead of WordPress's threshold.
 	 *
 	 * @return int
 	 */
@@ -313,7 +332,7 @@ final class LoadingBudget {
 			return $this->eager_count;
 		}
 
-		$default = function_exists( 'wp_omit_loading_attr_threshold' ) ? (int) wp_omit_loading_attr_threshold() : 3;
+		$default = 1;
 
 		/**
 		 * Filters how many images load immediately before the rest lazy load.

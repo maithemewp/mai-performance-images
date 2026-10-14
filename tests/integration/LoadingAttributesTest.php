@@ -67,19 +67,21 @@ final class LoadingAttributesTest extends TestCase {
 	public function test_a_content_image_above_a_grid_gets_high_priority(): void {
 		$html = $this->page( fn() => $this->the_content( $this->static_image( 1 ) . '<!-- wp:mpi-test/grid {"count":4} /-->' ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_an_ad_low_in_the_content_waits_its_turn(): void {
+		add_filter( 'mai_performance_images_eager_count', fn() => 2 );
+
 		$html = $this->page( fn() => $this->the_content( $this->static_image( 1 ) . '[mpi_ad]' . $this->static_image( 2 ) . $this->static_image( 3 ) ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_an_avatar_lazy_loads_and_spends_nothing(): void {
 		$html = $this->page( fn() => $this->the_content( '[mpi_avatar]' . $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) ) );
 
-		$this->assertSame( [ 'lazy', 'eager+high', 'eager', 'eager' ], $this->loading( $html ) );
+		$this->assertSame( [ 'lazy', 'eager+high', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_logo_loads_right_away_without_taking_high(): void {
@@ -103,14 +105,14 @@ final class LoadingAttributesTest extends TestCase {
 	public function test_a_hero_above_a_grid_in_a_template_part_gets_high_priority(): void {
 		$html = $this->page( fn() => mai_get_processed_content( $this->static_image( 1 ) . '<!-- wp:mpi-test/grid {"count":4} /-->' ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_hero_above_a_content_area_with_a_grid_gets_high_priority(): void {
 		// A template part holding a hero, then a content area that runs its own pass.
 		$html = $this->page( fn() => mai_get_processed_content( $this->static_image( 1 ) . '<!-- wp:mpi-test/area /-->' ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_an_area_printed_on_a_hook_is_counted_in_page_order(): void {
@@ -123,7 +125,7 @@ final class LoadingAttributesTest extends TestCase {
 			}
 		);
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_content_area_added_to_the_content_is_counted_in_page_order(): void {
@@ -131,7 +133,7 @@ final class LoadingAttributesTest extends TestCase {
 
 		$html = $this->page( fn() => $this->the_content( $this->static_image( 1 ) . $this->static_image( 2 ) ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_content_area_added_after_the_pass_is_counted_in_page_order(): void {
@@ -139,7 +141,7 @@ final class LoadingAttributesTest extends TestCase {
 
 		$html = $this->page( fn() => $this->the_content( $this->static_image( 1 ) ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_synced_pattern_is_counted_in_page_order(): void {
@@ -153,7 +155,7 @@ final class LoadingAttributesTest extends TestCase {
 
 		$html = $this->page( fn() => $this->the_content( $this->static_image( 1 ) . '<!-- wp:block {"ref":' . $pattern . '} /-->' ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_an_image_without_dimensions_spends_nothing(): void {
@@ -174,7 +176,7 @@ final class LoadingAttributesTest extends TestCase {
 		$pixel = '<noscript><img height="1" width="1" src="https://example.org/pixel.gif" alt=""></noscript>';
 		$html  = $this->filter_page( $pixel . $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) . $this->static_image( 4 ) );
 
-		$this->assertSame( [ '', 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ '', 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 		$this->assertSame( '', $this->images( $html )[0]['decoding'] );
 	}
 
@@ -187,7 +189,7 @@ final class LoadingAttributesTest extends TestCase {
 		$html  = $this->filter_page( $pixel . $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) . $this->static_image( 4 ) );
 
 		$this->assertStringStartsWith( $pixel, $html );
-		$this->assertSame( [ '', 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ '', 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_tracking_pixel_set_to_eager_does_not_switch_the_page_to_its_configuration(): void {
@@ -196,7 +198,7 @@ final class LoadingAttributesTest extends TestCase {
 
 		// Only the marker comes off the pixel.
 		$this->assertSame( [ 'loading' => '', 'fetchpriority' => '', 'decoding' => '', 'sizes' => '', 'class' => '' ], $this->images( $html )[0] );
-		$this->assertSame( [ '', 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ '', 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 		$this->assertNoMarkers( $html );
 	}
 
@@ -208,12 +210,12 @@ final class LoadingAttributesTest extends TestCase {
 		$this->assertSame( [ '', 'eager+high' ], $this->loading( $html ) );
 	}
 
-	public function test_a_3x3_image_is_treated_like_any_other(): void {
+	public function test_a_3x3_image_is_a_small_image_not_a_tracking_pixel(): void {
 		$small = '<img src="https://example.org/small.gif" width="3" height="3" alt="">';
 		$html  = $this->filter_page( $small . $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) );
 
-		$this->assertSame( [ 'eager', 'eager+high', 'eager', 'lazy' ], $this->loading( $html ) );
-		$this->assertSame( 'sync', $this->images( $html )[0]['decoding'] );
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'sync', 'auto' ], [ $this->images( $html )[0]['decoding'], $this->images( $html )[0]['fetchpriority'] ] );
 	}
 
 	public function test_a_pixel_without_both_dimensions_is_treated_as_before(): void {
@@ -263,13 +265,13 @@ final class LoadingAttributesTest extends TestCase {
 			}
 		);
 
-		$this->assertSame( [ 'eager', 'eager', 'eager', 'eager+high', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager', 'lazy', 'lazy', 'eager+high', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_an_image_marked_high_in_the_content_is_not_lazy(): void {
 		$html = $this->page( fn() => $this->the_content( $this->static_image( 1, 'fetchpriority="high"' ) . $this->static_image( 2 ) ) );
 
-		$this->assertSame( [ 'eager+high', 'eager' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_lazy_choice_takes_high_priority_away(): void {
@@ -285,14 +287,15 @@ final class LoadingAttributesTest extends TestCase {
 		$html  = $this->filter_page( '<img src="https://example.org/icon.png" width="32" height="32" alt="">' . $under . $at );
 
 		$this->assertSame( [ 'eager', 'eager', 'eager+high' ], $this->loading( $html ) );
+		$this->assertSame( [ 'auto', 'auto' ], array_slice( array_column( $this->images( $html ), 'fetchpriority' ), 0, 2 ) );
 	}
 
 	public function test_the_eager_count_filter_changes_how_many_load_right_away(): void {
-		add_filter( 'mai_performance_images_eager_count', fn() => 1 );
+		add_filter( 'mai_performance_images_eager_count', fn() => 2 );
 
 		$html = $this->filter_page( $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) );
 
-		$this->assertSame( [ 'eager+high', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'eager', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_lazy_images_get_sizes_auto_and_eager_images_do_not(): void {
@@ -301,7 +304,7 @@ final class LoadingAttributesTest extends TestCase {
 
 		$this->assertSame( '(max-width: 600px) 100vw, 600px', $images[0]['sizes'] );
 		$this->assertSame( 'auto, (max-width: 600px) 100vw, 600px', $images[3]['sizes'] );
-		$this->assertSame( [ 'sync', 'sync', 'sync', 'async' ], array_column( $images, 'decoding' ) );
+		$this->assertSame( [ 'sync', 'async', 'async', 'async' ], array_column( $images, 'decoding' ) );
 	}
 
 	public function test_sizes_auto_follows_the_core_switch(): void {
@@ -335,6 +338,8 @@ final class LoadingAttributesTest extends TestCase {
 	}
 
 	public function test_content_mai_publisher_inserts_later_lazy_loads(): void {
+		add_filter( 'mai_performance_images_eager_count', fn() => 3 );
+
 		$publisher = new \Mai_Publisher_Output();
 
 		ob_start();
@@ -352,7 +357,8 @@ final class LoadingAttributesTest extends TestCase {
 		ob_end_flush();
 		$html = (string) ob_get_clean();
 
-		// The page is decided on WordPress's filter. Images inserted after it lazy load.
+		// The page is decided on WordPress's filter. Images inserted after it lazy load,
+		// even with a slot still free.
 		$this->assertSame( [ 'eager+high', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
 		$this->assertNoMarkers( $html );
 	}
@@ -370,7 +376,7 @@ final class LoadingAttributesTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		// No mai_publisher_html filter ran, and the page is still fully decided.
-		$this->assertSame( [ 'eager+high', 'eager' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy' ], $this->loading( $html ) );
 		$this->assertNoMarkers( $html );
 	}
 
@@ -436,13 +442,13 @@ final class LoadingAttributesTest extends TestCase {
 		$logo = '<img class="custom-logo" src="https://example.org/logo.png" width="600" height="200" alt="">';
 		$html = $this->page( fn() => apply_filters( 'render_block_core/site-logo', $logo, [ 'blockName' => 'core/site-logo', 'attrs' => [ 'imgLoading' => 'eager' ] ] ) . $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) . $this->static_image( 4 ) );
 
-		$this->assertSame( [ 'eager', 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
-	public function test_a_page_with_only_configured_lazy_images_keeps_the_first_three_rule(): void {
+	public function test_a_page_with_only_configured_lazy_images_keeps_the_count_rule(): void {
 		$html = $this->page( fn() => $this->the_content( $this->block_image( 1, 'lazy' ) . $this->static_image( 2 ) . $this->static_image( 3 ) . $this->static_image( 4 ) . $this->static_image( 5 ) ) );
 
-		$this->assertSame( [ 'lazy', 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'lazy', 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_an_image_marked_high_keeps_it_on_a_configured_page(): void {
@@ -468,7 +474,7 @@ final class LoadingAttributesTest extends TestCase {
 		$hidden = '<noscript><img data-mpi-loading="eager" src="https://example.org/hidden.jpg" width="1024" height="683" alt=""></noscript>';
 		$html   = $this->filter_page( $hidden . $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) . $this->static_image( 4 ) );
 
-		$this->assertSame( [ '', 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ '', 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 		$this->assertNoMarkers( $html );
 	}
 
@@ -515,7 +521,7 @@ final class LoadingAttributesTest extends TestCase {
 		$section = '<section class="page-header has-page-header-image">' . $this->static_image( 1 ) . '</section>';
 		$html    = $this->page( fn() => $section . $this->static_image( 2 ) . $this->static_image( 3 ) . $this->static_image( 4 ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_page_header_image_is_known_with_extra_classes_and_inside_a_picture(): void {
@@ -528,7 +534,7 @@ final class LoadingAttributesTest extends TestCase {
 	public function test_a_page_header_image_given_lazy_by_code_stays_lazy_and_changes_nothing(): void {
 		$html = $this->page( fn() => $this->page_header_image( [ 'loading' => 'lazy' ] ) . $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) . $this->static_image( 4 ) );
 
-		$this->assertSame( [ 'lazy', 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'lazy', 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_page_header_image_marked_high_by_code_keeps_it(): void {
@@ -542,7 +548,7 @@ final class LoadingAttributesTest extends TestCase {
 		$html = $this->filter_page( $tiny . $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) . $this->static_image( 4 ) );
 
 		$this->assertStringStartsWith( $tiny, $html );
-		$this->assertSame( [ '', 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ '', 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_only_the_page_header_image_skips_the_50000_square_pixel_floor(): void {
@@ -550,6 +556,243 @@ final class LoadingAttributesTest extends TestCase {
 		$html  = $this->page( fn() => $this->the_content( $this->block_image( 1, 'eager', $small ) ) . $this->page_header_image() . $this->static_image( 2 ) );
 
 		$this->assertSame( [ 'eager', 'eager+high', 'lazy' ], $this->loading( $html ) );
+	}
+
+	/*
+	 * One main image. Small images and logos load right away only above it.
+	 */
+
+	/**
+	 * A small image, under 50,000 square pixels.
+	 *
+	 * @param int    $n     A number to make the src unique.
+	 * @param string $extra Extra attributes.
+	 *
+	 * @return string
+	 */
+	private function small_image( int $n, string $extra = '' ): string {
+		return sprintf( '<img src="https://example.org/small-%d.png" width="100" height="100" alt="" %s/>', $n, $extra );
+	}
+
+	/**
+	 * A logo, known by its class.
+	 *
+	 * @param string $extra Extra attributes.
+	 *
+	 * @return string
+	 */
+	private function logo( string $extra = '' ): string {
+		return sprintf( '<img class="custom-logo" src="https://example.org/logo.png" width="150" height="46" alt="" %s/>', $extra );
+	}
+
+	public function test_the_default_count_is_one(): void {
+		$html = $this->filter_page( $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) . $this->static_image( 4 ) );
+
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
+	}
+
+	public function test_a_small_image_above_the_main_image_loads_right_away_without_a_spot(): void {
+		$html = $this->filter_page( $this->small_image( 1 ) . $this->static_image( 1 ) . $this->static_image( 2 ) );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( 'auto', $this->images( $html )[0]['fetchpriority'] );
+	}
+
+	public function test_a_small_image_below_the_main_image_lazy_loads(): void {
+		$html = $this->filter_page( $this->static_image( 1 ) . $this->small_image( 1 ) );
+
+		$this->assertSame( [ 'eager+high', 'lazy' ], $this->loading( $html ) );
+	}
+
+	public function test_a_footer_logo_lazy_loads_and_a_header_logo_does_not(): void {
+		$html   = $this->filter_page( $this->logo() . $this->static_image( 1 ) . $this->logo() );
+		$images = $this->images( $html );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( 'auto', $images[0]['fetchpriority'] );
+		$this->assertSame( '', $images[2]['fetchpriority'] );
+	}
+
+	public function test_with_no_image_big_enough_the_first_small_image_takes_the_spot(): void {
+		$html   = $this->filter_page( $this->logo() . $this->small_image( 1 ) . $this->small_image( 2 ) . $this->logo() );
+		$images = $this->images( $html );
+
+		$this->assertSame( [ 'eager', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertNotSame( 'auto', $images[1]['fetchpriority'] );
+	}
+
+	public function test_with_only_logos_the_first_one_loads_right_away(): void {
+		$html = $this->filter_page( $this->logo() . $this->logo() );
+
+		$this->assertSame( [ 'eager', 'lazy' ], $this->loading( $html ) );
+	}
+
+	public function test_with_every_image_lazy_only_the_header_logo_loads_right_away(): void {
+		$html = $this->page( fn() => $this->logo() . $this->the_content( $this->block_image( 1, 'lazy' ) . $this->block_image( 2, 'lazy' ) ) . $this->logo() );
+
+		$this->assertSame( [ 'eager', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertNoMarkers( $html );
+	}
+
+	public function test_a_small_image_set_to_eager_still_takes_a_spot(): void {
+		$html = $this->page( fn() => $this->the_content( $this->block_image( 1, 'eager', $this->small_image( 1 ) ) . $this->static_image( 2 ) ) );
+
+		$this->assertSame( [ 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( '', $this->images( $html )[0]['fetchpriority'] );
+	}
+
+	public function test_a_small_image_above_a_configured_eager_image_loads_right_away(): void {
+		$html = $this->page( fn() => $this->the_content( $this->small_image( 1 ) . $this->block_image( 1, 'eager' ) . $this->small_image( 2 ) ) );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy' ], $this->loading( $html ) );
+	}
+
+	public function test_a_logo_set_to_eager_stays_eager_below_the_main_image(): void {
+		$logo = '<img class="custom-logo" src="https://example.org/logo.png" width="600" height="200" alt="">';
+		$html = $this->page( fn() => $this->static_image( 1 ) . apply_filters( 'render_block_core/site-logo', $logo, [ 'blockName' => 'core/site-logo', 'attrs' => [ 'imgLoading' => 'eager' ] ] ) );
+
+		$this->assertSame( [ 'eager+high', 'eager' ], $this->loading( $html ) );
+	}
+
+	public function test_a_logo_marked_low_above_the_main_image_keeps_low(): void {
+		$html  = $this->filter_page( $this->logo( 'fetchpriority="low"' ) . $this->static_image( 1 ) );
+		$image = $this->images( $html )[0];
+
+		$this->assertSame( [ 'eager', 'low' ], [ $image['loading'], $image['fetchpriority'] ] );
+	}
+
+	public function test_past_eight_waiting_small_images_the_rest_above_the_main_image_lazy_load(): void {
+		$smalls = implode( '', array_map( fn( $n ) => $this->small_image( $n ), range( 1, 10 ) ) );
+		$html   = $this->filter_page( $smalls . $this->static_image( 1 ) );
+
+		$this->assertSame( array_merge( array_fill( 0, 8, 'eager' ), [ 'lazy', 'lazy', 'eager+high' ] ), $this->loading( $html ) );
+	}
+
+	public function test_past_eight_waiting_with_no_main_image_the_first_small_image_still_takes_the_spot(): void {
+		$smalls = implode( '', array_map( fn( $n ) => $this->small_image( $n ), range( 1, 10 ) ) );
+		$html   = $this->filter_page( $smalls );
+
+		$this->assertSame( array_merge( [ 'eager' ], array_fill( 0, 9, 'lazy' ) ), $this->loading( $html ) );
+		$this->assertSame( '', $this->images( $html )[1]['fetchpriority'] );
+	}
+
+	public function test_with_a_count_of_three_a_logo_below_the_last_image_lazy_loads(): void {
+		add_filter( 'mai_performance_images_eager_count', fn() => 3 );
+
+		$html = $this->filter_page( $this->logo() . $this->static_image( 1 ) . $this->logo() );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy' ], $this->loading( $html ) );
+	}
+
+	public function test_a_small_image_below_the_first_image_lazy_loads_even_above_one_marked_high(): void {
+		$html = $this->filter_page( $this->static_image( 1 ) . $this->small_image( 1 ) . $this->static_image( 2, 'fetchpriority="high"' ) );
+
+		$this->assertSame( [ 'eager', 'lazy', 'eager+high' ], $this->loading( $html ) );
+	}
+
+	public function test_a_configured_eager_image_without_dimensions_is_still_the_main_image(): void {
+		$hero = '<img data-mpi-loading="eager" src="https://example.org/hero.jpg" alt="">';
+		$html = $this->filter_page( $this->logo() . $hero . $this->small_image( 1 ) . $this->logo() );
+
+		$this->assertSame( [ 'eager', 'eager', 'lazy', 'lazy' ], array_column( $this->images( $html ), 'loading' ) );
+		$this->assertNoMarkers( $html );
+	}
+
+	public function test_an_icon_below_a_page_header_lazy_loads(): void {
+		$html = $this->page( fn() => $this->logo() . $this->page_header_image() . $this->small_image( 1 ) );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( 'auto', $this->images( $html )[0]['fetchpriority'] );
+	}
+
+	public function test_with_a_count_of_two_an_icon_between_the_two_spots_loads_right_away(): void {
+		add_filter( 'mai_performance_images_eager_count', fn() => 2 );
+
+		$html = $this->filter_page( $this->logo() . $this->static_image( 1 ) . $this->small_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) . $this->logo() );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'eager', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( 'auto', $this->images( $html )[2]['fetchpriority'] );
+	}
+
+	public function test_with_a_count_of_three_nine_icons_and_an_image_marked_high_use_every_bookmark_safely(): void {
+		add_filter( 'mai_performance_images_eager_count', fn() => 3 );
+
+		$smalls = implode( '', array_map( fn( $n ) => $this->small_image( $n ), range( 1, 9 ) ) );
+		$html   = $this->filter_page( $this->static_image( 1 ) . $smalls . $this->static_image( 2, 'fetchpriority="high"' ) . $this->static_image( 3 ) );
+
+		$this->assertSame( array_merge( [ 'eager' ], array_fill( 0, 8, 'eager' ), [ 'lazy', 'eager+high', 'eager' ] ), $this->loading( $html ) );
+	}
+
+	public function test_with_a_count_of_three_a_low_logo_below_the_last_image_keeps_low(): void {
+		add_filter( 'mai_performance_images_eager_count', fn() => 3 );
+
+		$html = $this->filter_page( $this->static_image( 1 ) . $this->logo( 'fetchpriority="low"' ) );
+
+		$this->assertSame( [ 'eager+high', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( 'low', $this->images( $html )[1]['fetchpriority'] );
+	}
+
+	public function test_a_shown_logo_stands_in_before_an_overlay_logo_marked_low(): void {
+		$html = $this->filter_page( $this->logo( 'fetchpriority="low"' ) . $this->logo() . $this->logo() );
+
+		$this->assertSame( [ 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( 'low', $this->images( $html )[0]['fetchpriority'] );
+	}
+
+	public function test_an_icon_above_a_cover_hero_loads_right_away_without_the_spot(): void {
+		$cover = '<!-- wp:cover --><div class="wp-block-cover"><img class="wp-block-cover__image-background" src="https://example.org/cover.jpg" width="1600" height="900" alt=""><div class="wp-block-cover__inner-container">' . $this->small_image( 2 ) . '</div></div><!-- /wp:cover -->';
+		$html  = $this->page( fn() => $this->the_content( $this->small_image( 1 ) . $cover ) );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( 'auto', $this->images( $html )[0]['fetchpriority'] );
+	}
+
+	/**
+	 * Runs the page through WordPress's filter and Mai Publisher, which inserts its
+	 * content afterwards.
+	 *
+	 * @param string $insert What Mai Publisher inserts.
+	 *
+	 * @return string
+	 */
+	private function page_with_late_insert( string $insert ): string {
+		$publisher = new \Mai_Publisher_Output();
+
+		ob_start();
+		ob_start( [ $publisher, 'callback' ] );
+
+		echo $this->page(
+			function () use ( $publisher, $insert ) {
+				$publisher->insert = $insert;
+
+				return '<html><body>' . $this->static_image( 1 ) . '</body></html>';
+			}
+		);
+
+		ob_end_flush();
+
+		return (string) ob_get_clean();
+	}
+
+	public function test_an_image_mai_publisher_inserts_later_with_an_eager_marker_loads_right_away(): void {
+		$html = $this->page_with_late_insert( '<img data-mpi-loading="eager" src="https://example.org/late.jpg" width="1024" height="683" alt="">' );
+
+		$this->assertSame( [ 'eager+high', 'eager' ], $this->loading( $html ) );
+		$this->assertNoMarkers( $html );
+	}
+
+	public function test_an_image_mai_publisher_inserts_later_inside_noscript_is_left_alone(): void {
+		$html = $this->page_with_late_insert( '<noscript><img data-mpi-loading="eager" src="https://example.org/late.jpg" width="1024" height="683" alt=""></noscript>' );
+
+		$this->assertSame( [ 'eager+high', '' ], $this->loading( $html ) );
+		$this->assertNoMarkers( $html );
+	}
+
+	public function test_a_small_image_given_eager_by_code_loads_right_away_without_the_spot(): void {
+		$html = $this->filter_page( $this->small_image( 1, 'loading="eager"' ) . $this->static_image( 1 ) . $this->static_image( 2 ) . $this->small_image( 2, 'loading="eager"' ) );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy', 'eager' ], $this->loading( $html ) );
+		$this->assertSame( [ 'auto', 'auto' ], [ $this->images( $html )[0]['fetchpriority'], $this->images( $html )[3]['fetchpriority'] ] );
 	}
 
 	public function test_nothing_changes_when_the_setting_is_off(): void {

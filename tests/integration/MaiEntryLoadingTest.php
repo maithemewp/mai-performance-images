@@ -102,10 +102,10 @@ final class MaiEntryLoadingTest extends TestCase {
 		$this->assertSame( [ 'lazy', 'lazy', 'lazy', 'eager+high' ], $this->loading( $html ) );
 	}
 
-	public function test_automatic_uses_the_first_three_rule(): void {
+	public function test_automatic_loads_only_the_first_image_right_away(): void {
 		$html = $this->page( fn() => $this->loop( [ 'image_loading' => '' ], 5 ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_grid_setting_ends_with_the_grid(): void {

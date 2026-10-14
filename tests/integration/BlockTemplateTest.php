@@ -95,7 +95,7 @@ final class BlockTemplateTest extends TestCase {
 		$post = $this->create_post( $this->static_image( 1 ) . $this->static_image( 2 ) . $this->static_image( 3 ) );
 		$html = $this->render( $post, '<!-- wp:post-featured-image /--><!-- wp:post-content /-->' );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_featured_image_set_to_eager_is_the_only_image_that_loads_right_away(): void {
@@ -112,7 +112,7 @@ final class BlockTemplateTest extends TestCase {
 		$images = $this->images( $html );
 
 		$this->assertSame( [ 'eager', 'auto' ], [ $images[0]['loading'], $images[0]['fetchpriority'] ] );
-		$this->assertSame( [ 'eager', 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_hero_above_a_query_in_a_template_part_keeps_high_priority(): void {
@@ -121,10 +121,12 @@ final class BlockTemplateTest extends TestCase {
 		$hero = '<!-- wp:cover --><div class="wp-block-cover"><img class="wp-block-cover__image-background" src="https://example.org/hero.jpg" width="1600" height="900" alt=""/><span class="wp-block-cover__background"></span><div class="wp-block-cover__inner-container"></div></div><!-- /wp:cover -->';
 		$html = $this->render( $this->create_post( '' ), $hero . '<!-- wp:template-part {"slug":"mpi-query","theme":"block-theme"} /-->' );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_lazy_gallery_images_stay_lazy_and_spend_nothing(): void {
+		add_filter( 'mai_performance_images_eager_count', fn() => 3 );
+
 		$lazy    = fn( $n ) => '<!-- wp:image {"imgLoading":"lazy"} --><figure class="wp-block-image">' . $this->static_image( $n ) . '</figure><!-- /wp:image -->';
 		$gallery = '<!-- wp:gallery --><figure class="wp-block-gallery has-nested-images">' . $lazy( 1 ) . $lazy( 2 ) . '</figure><!-- /wp:gallery -->';
 		$post    = $this->create_post( $gallery . $this->static_image( 3 ) . $this->static_image( 4 ) . $this->static_image( 5 ) );
@@ -134,10 +136,32 @@ final class BlockTemplateTest extends TestCase {
 	}
 
 	public function test_a_thumbnail_built_lazy_stays_lazy_and_spends_nothing(): void {
+		add_filter( 'mai_performance_images_eager_count', fn() => 3 );
+
 		$post = $this->create_post( '<!-- wp:mpi-test/lazy-thumbnails /-->' . $this->static_image( 1 ) . $this->static_image( 2 ) );
 		$html = $this->render( $post, '<!-- wp:post-featured-image /--><!-- wp:post-content /-->' );
 
 		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'eager', 'eager' ], $this->loading( $html ) );
+	}
+
+	public function test_a_header_site_logo_loads_right_away_and_a_footer_one_lazy_loads(): void {
+		set_theme_mod( 'custom_logo', $this->create_image( 600, 200 ) );
+
+		$post   = $this->create_post( $this->static_image( 1 ) . $this->static_image( 2 ) );
+		$html   = $this->render( $post, '<!-- wp:site-logo /--><!-- wp:post-featured-image /--><!-- wp:post-content /--><!-- wp:site-logo /-->' );
+		$images = $this->images( $html );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'auto', '' ], [ $images[0]['fetchpriority'], $images[4]['fetchpriority'] ] );
+	}
+
+	public function test_a_footer_site_logo_set_to_eager_loads_right_away(): void {
+		set_theme_mod( 'custom_logo', $this->create_image( 600, 200 ) );
+
+		$post = $this->create_post( $this->static_image( 1 ) . $this->static_image( 2 ) );
+		$html = $this->render( $post, '<!-- wp:site-logo /--><!-- wp:post-featured-image /--><!-- wp:post-content /--><!-- wp:site-logo {"imgLoading":"eager"} /-->' );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy', 'lazy', 'eager' ], $this->loading( $html ) );
 	}
 
 	public function test_a_footer_image_after_the_template_is_counted_in_page_order(): void {
@@ -149,7 +173,7 @@ final class BlockTemplateTest extends TestCase {
 		$template = $this->load_template( $post );
 		$html     = $this->page( fn() => include $template );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 		$this->assertSame( 'async', $this->images( $html )[3]['decoding'] );
 		$this->assertNoMarkers( $html );
 	}
@@ -165,7 +189,7 @@ final class BlockTemplateTest extends TestCase {
 		// A classic single template: the featured image, then the content.
 		$html = $this->page( fn() => get_the_post_thumbnail( $post ) . $this->the_content( get_post_field( 'post_content', $post ) ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	public function test_a_block_theme_page_on_a_php_template_counts_in_page_order(): void {
@@ -178,7 +202,7 @@ final class BlockTemplateTest extends TestCase {
 
 		$html = $this->page( fn() => get_the_post_thumbnail( $post ) . $this->the_content( get_post_field( 'post_content', $post ) ) );
 
-		$this->assertSame( [ 'eager+high', 'eager', 'eager', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'eager+high', 'lazy', 'lazy', 'lazy' ], $this->loading( $html ) );
 	}
 
 	/**

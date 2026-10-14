@@ -8,11 +8,12 @@ WordPress already does this, but it guesses from the file size. A logo uploaded 
 
 - **Images set to Eager decide the page, when there are any.** If any image on the page is set to Eager, by a block, the Customizer or a Mai grid, those images load right away and every other image lazy loads. The first of them that is at least 50,000 square pixels also gets `fetchpriority="high"`, so the browser fetches it first.
 - **A Mai Engine page header image counts as set to Eager.** It loads right away, and images left on Automatic lazy load. If it's the first Eager image on the page, it gets `fetchpriority="high"` whatever its size. Mai tags it with a small size, such as 300 by 109, while it shows full width, so the 50,000 square pixel floor would leave it out. The plugin knows it by the `page-header-image` class on the image. If code already gave it `loading="lazy"`, it stays lazy and the page is decided as if it weren't there.
-- **Otherwise the first three images load right away.** The first of them that is at least 50,000 square pixels gets `fetchpriority="high"`. Every image after that lazy loads.
-- **Tiny images are left alone.** An image whose width and height are both 2 pixels or less, such as a tracking pixel, gets nothing from the plugin. It doesn't count toward the three, never gets high priority, and doesn't count as an Eager image. The plugin reads only the width and height already on the tag, so this adds no measurable time.
-- **Logos load right away but never take the top spot.** Avatars always lazy load. Neither counts toward the three, and a logo set to Eager doesn't count as an Eager image.
+- **Otherwise the first image of at least 50,000 square pixels loads right away,** with `fetchpriority="high"`. That is the page's main image. Every image below it lazy loads. WordPress loads three, but on phones only the first is on screen, and every extra image downloading at the same time slows it down.
+- **Small images and logos never take the main image's spot.** An image under 50,000 square pixels, such as an icon, and a logo both load right away with `fetchpriority="auto"` when they sit above the main image, and lazy load below it. So a header logo loads right away and a footer logo doesn't. A logo set to Eager by an editor always loads right away. On a page with no image big enough, the first small image takes the spot, without high priority. With no small image either, the first logo loads right away.
+- **Tiny images are left alone.** An image whose width and height are both 2 pixels or less, such as a tracking pixel, gets nothing from the plugin. It isn't counted, never gets high priority, and doesn't count as an Eager image. The plugin reads only the width and height already on the tag, so this adds no measurable time.
+- **Avatars always lazy load.** A logo set to Eager doesn't count as an Eager image.
 - **The count follows the finished page.** The plugin decides once, after the whole page is built, going from the top of the page to the bottom. It doesn't matter which block, template part or ad built an image, or when.
-- **Choices already on an image are kept.** An image marked `fetchpriority="high"` keeps it, and no image above it gets high too. An image given `loading="lazy"` by code stays lazy and doesn't use up one of the three. Images marked `fetchpriority="auto"` or `"low"`, images without a width and height, and images inside `<noscript>` don't count.
+- **Choices already on an image are kept.** An image marked `fetchpriority="high"` keeps it, and no image above it gets high too. An image given `loading="lazy"` by code stays lazy and doesn't use up the spot. Images marked `fetchpriority="auto"` or `"low"`, images without a width and height, and images inside `<noscript>` don't count. To keep an image out of the spot from a theme or another plugin, give it `fetchpriority="auto"`.
 - **Lazy images get `sizes="auto"`,** so the browser picks the right file for the space the image actually fills.
 
 ## How it works
@@ -38,15 +39,15 @@ On sites running Mai Publisher, ads and sidebar content are added to the page af
 
 With Eager, the grid and archive settings also take an **Image Loading Count**. The first that many entries load right away and the rest lazy load. Leave it empty to load them all right away.
 
-Once any image on a page is set to Eager, images left on Automatic lazy load. A Mai Engine page header image counts as set to Eager. On a page with no Eager image, Automatic uses the first-three rule. Lazy never counts toward the three, so the images after a lazy grid still get their turn.
+Once any image on a page is set to Eager, images left on Automatic lazy load. A Mai Engine page header image counts as set to Eager. On a page with no Eager image, Automatic loads the main image right away. Lazy never uses up the spot, so an image after a lazy grid can still be the main image.
 
 ## Filters
 
-`mai_performance_images_eager_count` sets how many images load right away. The default is WordPress's own number, which is 3.
+`mai_performance_images_eager_count` sets how many images load right away. The default is 1. Small images and logos above the last of them still load right away.
 
 ```php
 add_filter( 'mai_performance_images_eager_count', function( $count ) {
-	return 2;
+	return 3;
 } );
 ```
 

@@ -41,13 +41,21 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * 3. An image already marked fetchpriority="high".
  * 4. A Lazy or Eager choice: the editor's, the Mai entry's, or a loading value
  *    already on the tag. Lazy spends nothing.
- * 5. The position rule in LoadingBudget.
+ * 5. A small image, under WordPress's 50,000 square pixel floor, which spends
+ *    nothing.
+ * 6. The position rule in LoadingBudget.
+ *
+ * The main image is the one that takes the last slot. A logo or a small image
+ * loads right away when it sits above the main image and lazy loads below it, so
+ * a header logo loads right away and a footer logo does not. An editor's Eager
+ * choice on a logo holds anywhere. When no image takes a slot, the first small
+ * image takes one, or failing that the first logo stands in. See walk_page().
  *
  * Configured Eager means the editor's or the Mai entry's choice, not a loading
  * value already on the tag. Mai Engine's page header image counts as configured
  * Eager too, unless it carries a marker or loading="lazy" already. When the page
  * has at least one image configured Eager, the page follows its configuration:
- * step 5 lazy loads instead of counting, and a loading="eager" already on the tag
+ * step 6 lazy loads instead of counting, and a loading="eager" already on the tag
  * stays eager without taking high priority.
  *
  * @since 0.7.0
@@ -55,6 +63,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * @since 0.8.0 Follows the configuration on a page with an image configured Eager.
  * @since 0.8.0 Leaves tiny images, such as tracking pixels, alone.
  * @since 0.8.0 Counts Mai Engine's page header image as configured Eager.
+ * @since 0.8.0 Loads logos and small images right away only above the main image.
  */
 final class LoadingAttributes {
 	/**
@@ -83,6 +92,16 @@ final class LoadingAttributes {
 	 * @var string
 	 */
 	private const PAGE_HEADER_CLASS = 'page-header-image';
+
+	/**
+	 * How many logos and small images can wait for an image to take a slot below
+	 * them. The tag processor allows ten bookmarks, and the walk needs two more.
+	 *
+	 * @since 0.8.0
+	 *
+	 * @var int
+	 */
+	private const MAX_WAITING = 8;
 
 	/**
 	 * Filters that run on the final HTML after WordPress's page filter.
@@ -390,52 +409,82 @@ final class LoadingAttributes {
 			return $html;
 		}
 
-		$enabled   = is_attributes_enabled();
+		if ( $late ) {
+			return $this->walk_late( $html );
+		}
+
+		$budget = is_attributes_enabled() ? new LoadingBudget( $this->has_configured_eager( $html ) ) : null;
+
+		return $this->walk_page( $html, $budget );
+	}
+
+	/**
+	 * Decides and writes every image on the page in one pass.
+	 *
+	 * A logo or a small image loads right away while the slots are still free,
+	 * because it sits above the main image. Once they are taken, it lazy loads.
+	 * One that loaded right away is bookmarked until an image takes a slot below
+	 * it. If none does, settle_waiting() goes back for it, so a footer logo on a
+	 * page without a main image still lazy loads.
+	 *
+	 * Bookmarks are limited, so only the first few wait. Past those, a logo or a
+	 * small image above the main image lazy loads, which a browser still loads as
+	 * soon as it sees it on screen.
+	 *
+	 * @since 0.8.0
+	 *
+	 * @param string             $html   The finished page.
+	 * @param LoadingBudget|null $budget The page's budget, or null to only remove
+	 *                                   the markers.
+	 *
+	 * @return string
+	 */
+	private function walk_page( string $html, ?LoadingBudget $budget ): string {
 		$tags      = new \WP_HTML_Tag_Processor( $html );
-		$budget    = new LoadingBudget( $enabled && ! $late && $this->has_configured_eager( $html ) );
-		$hidden    = 0;
+		$waiting   = [];
 		$auto_high = false;
+		$found     = false;
 
-		while ( $tags->next_tag( [ 'tag_closers' => 'visit' ] ) ) {
-			$name = $tags->get_tag();
-
-			if ( 'NOSCRIPT' === $name || 'TEMPLATE' === $name ) {
-				$hidden = max( 0, $hidden + ( $tags->is_tag_closer() ? -1 : 1 ) );
-				continue;
-			}
-
-			if ( 'IMG' !== $name || $tags->is_tag_closer() ) {
-				continue;
-			}
-
+		foreach ( self::each_image( $tags ) as $index => $hidden ) {
 			$marker = $tags->get_attribute( self::MARKER );
 
 			if ( null !== $marker ) {
 				$tags->remove_attribute( self::MARKER );
 			}
 
-			if ( $hidden || ! $enabled ) {
-				continue;
-			}
-
 			$size = self::size( $tags );
 
-			if ( self::is_tiny( $size ) ) {
-				continue;
-			}
-
-			if ( $late ) {
-				if ( null === $tags->get_attribute( 'loading' ) ) {
-					$this->apply( $tags, [ 'loading' => 'eager' === $marker ? 'eager' : 'lazy' ] );
-				}
-
+			if ( ! $budget || $hidden || self::is_tiny( $size ) ) {
 				continue;
 			}
 
 			$page_header   = self::is_page_header( $tags, $marker );
 			$marker        = $page_header ? 'eager' : $marker;
 			$explicit_high = 'high' === strtolower( (string) $tags->get_attribute( 'fetchpriority' ) );
-			$attrs         = $this->decide( $tags, $budget, is_string( $marker ) ? $marker : '', $size, $page_header );
+			$is_logo       = 'logo' === $marker || 'logo' === LoadingBudget::kind( [ 'class' => (string) $tags->get_attribute( 'class' ) ] );
+			$free          = $budget->spent() < $budget->get_eager_count();
+			$spent         = $budget->spent();
+			$pending       = '';
+			$attrs         = $this->decide( $tags, $budget, is_string( $marker ) ? $marker : '', $size, $page_header, $pending );
+
+			if ( $pending ) {
+				if ( ! $free || count( $waiting ) >= self::MAX_WAITING ) {
+					$this->apply( $tags, $budget->lazy() );
+					continue;
+				}
+
+				$name             = 'mpi-wait-' . $index;
+				$waiting[ $name ] = [
+					'kind'   => $pending,
+					'size'   => $size,
+					'added'  => isset( $attrs['fetchpriority'] ),
+					'hidden' => in_array( strtolower( (string) $tags->get_attribute( 'fetchpriority' ) ), [ 'auto', 'low' ], true ),
+				];
+
+				$tags->set_bookmark( $name );
+				$this->apply( $tags, $attrs );
+				continue;
+			}
 
 			// An image somebody marked high outranks one this walk picked above it.
 			if ( $explicit_high && $auto_high && 'high' === ( $attrs['fetchpriority'] ?? '' ) ) {
@@ -451,18 +500,165 @@ final class LoadingAttributes {
 				$auto_high = true;
 			}
 
+			$configured_eager = 'eager' === $marker && ! $is_logo && 'eager' === ( $attrs['loading'] ?? '' );
+
 			$this->apply( $tags, $attrs );
+
+			// The logos and small images waiting above the main image keep loading right
+			// away. An image configured Eager is a main image even when it spends nothing,
+			// such as one without a width and height.
+			if ( $budget->spent() > $spent || $configured_eager ) {
+				$found = true;
+
+				array_map( [ $tags, 'release_bookmark' ], array_keys( $waiting ) );
+				$waiting = [];
+			}
 		}
 
-		$html = $tags->get_updated_html();
-
-		// A marker inside a script or an attribute value, such as block markup kept in
-		// JSON, is out of the walk's reach. It is only text there, so it goes as text.
-		if ( str_contains( $html, self::MARKER ) ) {
-			$html = (string) preg_replace( '/\s' . self::MARKER . '=(\\\\?["\']|&quot;|&#0?39;)[a-z]*\1/', '', $html );
+		if ( $budget && $waiting ) {
+			$this->settle_waiting( $tags, $budget, $waiting, $found );
 		}
 
-		return $html;
+		return self::remove_leftover_markers( $tags->get_updated_html() );
+	}
+
+	/**
+	 * Goes back to the logos and small images that no image took a slot below.
+	 *
+	 * When an image took a slot above them, they sit below the main image, so they
+	 * lazy load. When no image took a slot at all, the first small image stands in
+	 * as the main image, or failing that the first logo. The ones above it keep
+	 * loading right away and the ones below it lazy load.
+	 *
+	 * @since 0.8.0
+	 *
+	 * @param \WP_HTML_Tag_Processor $tags    The tag processor, at the end of the page.
+	 * @param LoadingBudget          $budget  The page's budget.
+	 * @param array[]                $waiting The waiting images, by bookmark, in page order.
+	 * @param bool                   $found   Whether the page has a main image.
+	 *
+	 * @return void
+	 */
+	private function settle_waiting( \WP_HTML_Tag_Processor $tags, LoadingBudget $budget, array $waiting, bool $found ): void {
+		$stand_in = null;
+
+		// A logo WordPress marked auto or low, such as one in a navigation overlay,
+		// may not be shown, so a shown logo stands in first.
+		if ( ! $found ) {
+			$order    = [ 'small' => 0, 'logo' => 1, 'hidden' => 2 ];
+			$rank     = fn( $image ) => $order[ 'logo' === $image['kind'] && $image['hidden'] ? 'hidden' : $image['kind'] ];
+			$ranks    = array_map( $rank, $waiting );
+			$stand_in = array_search( min( $ranks ), $ranks, true );
+		}
+
+		$above = null !== $stand_in;
+
+		foreach ( $waiting as $name => $image ) {
+			if ( $name === $stand_in ) {
+				$above = false;
+
+				// A small stand-in takes the slot, without high priority, since it is not
+				// big enough. A logo keeps what it has.
+				if ( 'small' === $image['kind'] ) {
+					$tags->seek( $name );
+					$tags->remove_attribute( 'fetchpriority' );
+					$this->apply( $tags, $budget->take( 'eager', $image['size'] ) );
+				}
+			} elseif ( ! $above ) {
+				$tags->seek( $name );
+
+				if ( $image['added'] ) {
+					$tags->remove_attribute( 'fetchpriority' );
+				}
+
+				$this->apply( $tags, $budget->lazy() );
+			}
+
+			$tags->release_bookmark( $name );
+		}
+	}
+
+	/**
+	 * Answers images inserted after the page was decided.
+	 *
+	 * Images that already have a loading attribute were decided, so they are left
+	 * alone. The rest lazy load unless their marker says eager.
+	 *
+	 * @since 0.8.0
+	 *
+	 * @param string $html The final page.
+	 *
+	 * @return string
+	 */
+	private function walk_late( string $html ): string {
+		$enabled = is_attributes_enabled();
+		$tags    = new \WP_HTML_Tag_Processor( $html );
+
+		foreach ( self::each_image( $tags ) as $hidden ) {
+			$marker = $tags->get_attribute( self::MARKER );
+
+			if ( null !== $marker ) {
+				$tags->remove_attribute( self::MARKER );
+			}
+
+			if ( $hidden || ! $enabled || self::is_tiny( self::size( $tags ) ) || null !== $tags->get_attribute( 'loading' ) ) {
+				continue;
+			}
+
+			$this->apply( $tags, [ 'loading' => 'eager' === $marker ? 'eager' : 'lazy' ] );
+		}
+
+		return self::remove_leftover_markers( $tags->get_updated_html() );
+	}
+
+	/**
+	 * Moves the tag processor to each img tag on the page, in page order.
+	 *
+	 * @since 0.8.0
+	 *
+	 * @param \WP_HTML_Tag_Processor $tags The tag processor.
+	 *
+	 * @return \Generator<int, bool> The image's index, and whether it sits inside
+	 *                               noscript or template, hidden from the visitor.
+	 */
+	private static function each_image( \WP_HTML_Tag_Processor $tags ): \Generator {
+		$hidden = 0;
+		$index  = 0;
+
+		while ( $tags->next_tag( [ 'tag_closers' => 'visit' ] ) ) {
+			$name = $tags->get_tag();
+
+			if ( 'NOSCRIPT' === $name || 'TEMPLATE' === $name ) {
+				$hidden = max( 0, $hidden + ( $tags->is_tag_closer() ? -1 : 1 ) );
+				continue;
+			}
+
+			if ( 'IMG' !== $name || $tags->is_tag_closer() ) {
+				continue;
+			}
+
+			yield $index++ => $hidden > 0;
+		}
+	}
+
+	/**
+	 * Removes markers the walk could not reach.
+	 *
+	 * A marker inside a script or an attribute value, such as block markup kept in
+	 * JSON, is out of the walk's reach. It is only text there, so it goes as text.
+	 *
+	 * @since 0.8.0
+	 *
+	 * @param string $html The page.
+	 *
+	 * @return string
+	 */
+	private static function remove_leftover_markers( string $html ): string {
+		if ( ! str_contains( $html, self::MARKER ) ) {
+			return $html;
+		}
+
+		return (string) preg_replace( '/\s' . self::MARKER . '=(\\\\?["\']|&quot;|&#0?39;)[a-z]*\1/', '', $html );
 	}
 
 	/**
@@ -471,8 +667,8 @@ final class LoadingAttributes {
 	 * Configured Eager is the eager marker, from the editor's block choice or the
 	 * Mai entry's setting, or Mai Engine's page header image. It must be on an
 	 * image the visitor sees, so not inside
-	 * noscript or template. A logo does not count, because a logo loads right
-	 * away whatever it is set to and says nothing about the rest of the page. A
+	 * noscript or template. A logo does not count, because a logo set to Eager
+	 * says nothing about the rest of the page. A
 	 * tiny image does not count either, because the walk leaves it alone.
 	 *
 	 * Runs before the walk, because the walk's first image may already depend on
@@ -491,18 +687,10 @@ final class LoadingAttributes {
 			return false;
 		}
 
-		$tags   = new \WP_HTML_Tag_Processor( $html );
-		$hidden = 0;
+		$tags = new \WP_HTML_Tag_Processor( $html );
 
-		while ( $tags->next_tag( [ 'tag_closers' => 'visit' ] ) ) {
-			$name = $tags->get_tag();
-
-			if ( 'NOSCRIPT' === $name || 'TEMPLATE' === $name ) {
-				$hidden = max( 0, $hidden + ( $tags->is_tag_closer() ? -1 : 1 ) );
-				continue;
-			}
-
-			if ( 'IMG' !== $name || $tags->is_tag_closer() || $hidden ) {
+		foreach ( self::each_image( $tags ) as $hidden ) {
+			if ( $hidden ) {
 				continue;
 			}
 
@@ -532,10 +720,14 @@ final class LoadingAttributes {
 	 * @param bool                   $page_header Whether this is Mai Engine's page
 	 *                                            header image, which takes high
 	 *                                            priority at any size.
+	 * @param string                 $pending     Set to 'logo' or 'small' when the
+	 *                                            answer is only for an image above
+	 *                                            the main image. walk_page()
+	 *                                            decides the rest.
 	 *
 	 * @return array
 	 */
-	private function decide( \WP_HTML_Tag_Processor $tags, LoadingBudget $budget, string $marker, ?array $size, bool $page_header = false ): array {
+	private function decide( \WP_HTML_Tag_Processor $tags, LoadingBudget $budget, string $marker, ?array $size, bool $page_header = false, string &$pending = '' ): array {
 		$chosen        = in_array( $marker, [ 'lazy', 'eager' ], true ) ? $marker : '';
 		$loading       = $chosen ?: strtolower( (string) $tags->get_attribute( 'loading' ) );
 		$loading       = in_array( $loading, [ 'lazy', 'eager' ], true ) ? $loading : '';
@@ -553,6 +745,11 @@ final class LoadingAttributes {
 			// Keep low on a logo hidden in a navigation overlay.
 			if ( $fetchpriority ) {
 				unset( $attrs['fetchpriority'] );
+			}
+
+			// An editor's Eager choice holds wherever the logo sits.
+			if ( 'eager' !== $chosen ) {
+				$pending = 'logo';
 			}
 
 			return $attrs;
@@ -582,10 +779,23 @@ final class LoadingAttributes {
 			return [ 'loading' => 'eager' ];
 		}
 
+		// Code that put loading="eager" on a small image, such as an icon, meant it to
+		// load right away, so it does, wherever it sits. It just never takes the spot.
+		if ( 'eager' === $loading && ! $chosen && ! $budget->big_enough( $size ) ) {
+			return $budget->decline();
+		}
+
 		// Mai tags its page header image with a small fallback size, such as 300x109,
 		// while it shows full width, so the size floor would wrongly rule it out.
 		if ( $loading ) {
 			return $budget->take( $loading, $size, ! $page_header );
+		}
+
+		// A small image, such as an icon, never takes the spot from the main image.
+		if ( ! $budget->big_enough( $size ) ) {
+			$pending = 'small';
+
+			return $budget->decline();
 		}
 
 		return $budget->next( $size );
