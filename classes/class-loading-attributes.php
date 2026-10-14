@@ -742,8 +742,9 @@ final class LoadingAttributes {
 		if ( 'logo' === $kind ) {
 			$attrs = $budget->for_kind( 'logo' );
 
-			// Keep low on a logo hidden in a navigation overlay.
-			if ( $fetchpriority ) {
+			// Keep low on a logo hidden in a navigation overlay. High is replaced, since
+			// a logo never takes it. Mai Engine before 2.41.0 forced high on its logo.
+			if ( in_array( $fetchpriority, [ 'auto', 'low' ], true ) ) {
 				unset( $attrs['fetchpriority'] );
 			}
 

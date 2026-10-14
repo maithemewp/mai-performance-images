@@ -15,6 +15,7 @@
 
 ### Fixed
 
+- **A logo marked high priority by code gives it up to the main image.** Mai Engine before 2.41.0 marks its logo `fetchpriority="high"`, so a page could end up with two. The logo now gets `auto`.
 - **Tracking pixels are left alone.** An image whose width and height are both 2 pixels or less gets no loading changes from the plugin. Before, a hidden pixel near the top of the page, such as MailerLite's, used up one of the first three spots. One set to Eager could even make every other image lazy load.
 - **On a block theme, the featured image above the post content gets high priority.** Before, the first image inside the post content took it.
 - **A hero above a content area holding a grid keeps high priority.** Before, the grid inside the content area took the first spots.

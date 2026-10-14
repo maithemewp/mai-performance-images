@@ -795,6 +795,13 @@ final class LoadingAttributesTest extends TestCase {
 		$this->assertSame( [ 'auto', 'auto' ], [ $this->images( $html )[0]['fetchpriority'], $this->images( $html )[3]['fetchpriority'] ] );
 	}
 
+	public function test_a_logo_marked_high_by_code_gives_it_up_to_the_main_image(): void {
+		$html = $this->filter_page( $this->logo( 'loading="eager" fetchpriority="high"' ) . $this->static_image( 1 ) . $this->logo( 'fetchpriority="high"' ) );
+
+		$this->assertSame( [ 'eager', 'eager+high', 'lazy' ], $this->loading( $html ) );
+		$this->assertSame( [ 'auto', '' ], [ $this->images( $html )[0]['fetchpriority'], $this->images( $html )[2]['fetchpriority'] ] );
+	}
+
 	public function test_nothing_changes_when_the_setting_is_off(): void {
 		update_option( 'mai_performance_images', [ 'attributes' => false ] );
 
