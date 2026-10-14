@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Mai Performance Images
  * Description:       Loads the first images on each page right away and lazy loads the rest, with Image Loading settings for blocks, Mai grids and the Customizer.
- * Version:           0.7.0
+ * Version:           0.8.0
  * Requires at least: 6.9
  * Requires PHP:      8.1
  * Author:            JiveDig
@@ -91,7 +91,7 @@ function remove_conversion_leftovers(): void {
  *
  * @since 0.7.0
  */
-const MAI_PERFORMANCE_IMAGES_VERSION = '0.7.0';
+const MAI_PERFORMANCE_IMAGES_VERSION = '0.8.0';
 
 /**
  * Gets default options.
