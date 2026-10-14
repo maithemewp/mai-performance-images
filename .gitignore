@@ -83,3 +83,6 @@ mix-manifest.json
 # Test-only dependencies and caches. See tests/composer.json.
 /tests/vendor/
 /.phpunit.cache/
+
+# mai-sites deploy targets, kept on the machine that runs the pushes.
+mai-sites.json

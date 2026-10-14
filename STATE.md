@@ -2,7 +2,7 @@
 Updated: October 14, 2026 by Claude
 
 ## Now
-Unreleased 0.8.0 on `develop`: the finished-page rewrite (commit 872496b, pushed) plus the one main image change (uncommitted, built October 14). Version header still says 0.7.0. The newest tag is 0.7.0, which is what live sites run, sw.doyouremember.com included.
+Unreleased 0.8.0 on `develop`: the finished-page rewrite (872496b) plus the one main image change (551f51c), both pushed. Version header still says 0.7.0. The newest tag is 0.7.0, which is what live sites run, sw.doyouremember.com included.
 
 How it decides:
 - If any image on the page is set to Eager (block Image Loading, Mai Customizer archive or single settings, Mai grid settings), only those load right away and the first gets high priority. Big images left on Automatic lazy load.
@@ -15,14 +15,14 @@ How it decides:
 Spec: `docs/specs/2026-10-14-one-main-image.md`. Plan: `docs/plans/2026-10-14-one-main-image.md`.
 
 ## Next
-- Finish the review of the one main image change, then ask Mike to commit.
+- Test develop on sw.doyouremember.com, eurweb.com and allhiphop.com (targets in the git-ignored `mai-sites.json`). allhiphop doesn't have the plugin installed yet.
 - Bump to 0.8.0 and release. Ask Mike before tagging.
 - Remove the `mai_publisher_html` late pass once https://github.com/bizbudding/mai-publisher/issues/62 lands.
 - Check mai-content-areas on real block theme content.
 - Later, maybe: move this into Mai Engine once it proves out on real sites.
 
 ## Blocked / waiting on
-- Mike's go to commit and release.
+- Mike runs the pushes to the test sites, then decides on release.
 
 ## Verify
 - `composer test` (124 tests). Walk speed has no automated check; rerun the timing below after changing the walk.
