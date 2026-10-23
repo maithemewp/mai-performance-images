@@ -189,8 +189,7 @@ final class LoadingAttributes {
 		add_filter( 'wp_get_loading_optimization_attributes',     [ $this, 'filter_loading_attributes' ], 10, 4 );
 
 		// WordPress starts collecting the page at priority 1000 when the page filter
-		// exists by then. This runs earlier on the same action, after the theme has
-		// loaded, so a theme can still turn the setting off.
+		// exists by then, so this adds it earlier on the same action.
 		add_action( 'wp_before_include_template', [ $this, 'add_page_filter' ], 10, 0 );
 	}
 
