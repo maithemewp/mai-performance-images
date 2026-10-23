@@ -47,10 +47,6 @@ final class ImageLoading {
 	 * @return void
 	 */
 	public function enqueue_block_editor_assets() {
-		if ( ! is_attributes_enabled() ) {
-			return;
-		}
-
 		$asset_file = include( dirname( __DIR__ ) . '/build/block-settings.asset.php' );
 
 		wp_enqueue_script(
@@ -78,11 +74,6 @@ final class ImageLoading {
 		// Get the img loading attribute. An empty value is the editor's "Automatic",
 		// which hands the decision to LoadingAttributes rather than forcing lazy.
 		$loading = $block['attrs']['imgLoading'] ?? '';
-
-		// Bail if the setting is off.
-		if ( ! is_attributes_enabled() ) {
-			return $block_content;
-		}
 
 		// Bail if the editor made no explicit choice.
 		if ( ! in_array( $loading, [ 'lazy', 'eager' ], true ) ) {

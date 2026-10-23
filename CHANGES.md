@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- **The Settings > Performance Images page.** Its one checkbox turned the whole plugin off, the same as deactivating it. The plugin now always runs while it's active. Its saved setting, along with the old WebP settings stored with it, is deleted the next time someone visits the admin.
+
 ## 0.8.0 (10/14/26)
 
 ### Changed

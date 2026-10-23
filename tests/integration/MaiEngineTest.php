@@ -23,18 +23,6 @@ final class MaiEngineTest extends TestCase {
 		$this->assertSame( 'lazy', $loading );
 	}
 
-	public function test_mai_support_stays_off_when_the_setting_is_off(): void {
-		// The bootstrap already ran this once, with the setting on.
-		remove_all_filters( 'mai_performance_images_entry_loading' );
-		remove_all_filters( 'mai_grid_args' );
-
-		update_option( 'mai_performance_images', [ 'attributes' => false ] );
-		add_mai_engine_support();
-
-		$this->assertFalse( has_filter( 'mai_performance_images_entry_loading' ) );
-		$this->assertFalse( has_filter( 'mai_grid_args' ) );
-	}
-
 	public function test_grid_blocks_pass_their_setting_to_their_entries(): void {
 		$GLOBALS['mpi_test_fields'] = [
 			'image_loading'       => 'eager',

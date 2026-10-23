@@ -1,7 +1,9 @@
 # State
-Updated: October 14, 2026 by Claude
+Updated: October 23, 2026 by Claude
 
 ## Now
+On `develop`, unreleased: the Settings > Performance Images page is gone. Its one checkbox turned the whole plugin off, the same as deactivating it. On October 23 none of the 58 sites with the plugin active had it off (34 saved on, 24 never saved). `remove_settings_leftovers()` deletes the `mai_performance_images` option on the next admin visit. The `@since 0.9.0` on it assumes the next release is 0.9.0.
+
 0.8.0 is released (tag 0.8.0, `main` at e5449b8, October 14). The 27 sites in the git-ignored `mai-sites.json` were pushed 0.8.0 by hand and all boot on it. The other 33 sites were on 0.7.0 and should get 0.8.0 from the updater.
 
 How it decides:
@@ -25,7 +27,7 @@ Spec: `docs/specs/2026-10-14-one-main-image.md`. Plan: `docs/plans/2026-10-14-on
 - Nothing.
 
 ## Verify
-- `composer test` (124 tests). Walk speed has no automated check; rerun the timing below after changing the walk.
+- `composer test` (121 tests). Walk speed has no automated check; rerun the timing below after changing the walk.
 - Symlinked on beof, eurweb, larrybrownsports, sportsdataio, visitsleepyhollow. List images with `curl -sk` plus a `?mpi=<random>` query, because eurweb runs WP Rocket and serves cached pages otherwise. Expect one `fetchpriority="high"`, logos above it eager, footer logos lazy, no `data-mpi-loading`.
 - Walk time on the sw Stories archive (200 KB, 26 images) is 3.9 ms per page, the same as before the change. A two-pass version measured 6.4 ms and was dropped.
 - Mobile Lighthouse on the local eurweb News archive, 5 alternating runs each, October 14: 0.7.0 median score 71 and LCP 4.9 s; 0.8.0 median 76 and 4.3 s. 0.8.0 won 3 of 5 pairs, and the spread between runs (3.3 to 8.4 s) is bigger than the gap, so it's no worse, but not a proven win on this page. The LCP image was the first entry in every run.

@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       Mai Performance Images
- * Description:       Loads the first images on each page right away and lazy loads the rest, with Image Loading settings for blocks, Mai grids and the Customizer.
+ * Description:       Loads each page's main image right away and lazy loads the rest, with Image Loading settings for blocks, Mai grids and the Customizer.
  * Version:           0.8.0
  * Requires at least: 6.9
  * Requires PHP:      8.1
@@ -23,7 +23,6 @@ require_once __DIR__ . '/vendor/autoload.php';
 LoadingAttributes::instance();
 new ImageLoading();
 new MaiBlocks();
-new Settings();
 new Updater();
 
 add_action( 'after_setup_theme', __NAMESPACE__ . '\add_mai_engine_support' );
@@ -35,7 +34,7 @@ add_action( 'after_setup_theme', __NAMESPACE__ . '\add_mai_engine_support' );
  * @return void
  */
 function add_mai_engine_support() {
-	if ( ! class_exists( '\Mai_Engine' ) || ! is_attributes_enabled() ) {
+	if ( ! class_exists( '\Mai_Engine' ) ) {
 		return;
 	}
 
@@ -44,6 +43,7 @@ function add_mai_engine_support() {
 }
 
 add_action( 'admin_init', __NAMESPACE__ . '\remove_conversion_leftovers' );
+add_action( 'admin_init', __NAMESPACE__ . '\remove_settings_leftovers' );
 /**
  * Removes what WebP conversion left behind, once.
  *
@@ -94,38 +94,20 @@ function remove_conversion_leftovers(): void {
 const MAI_PERFORMANCE_IMAGES_VERSION = '0.8.0';
 
 /**
- * Gets default options.
+ * Deletes the saved setting from the removed settings page.
  *
- * @since 0.5.0
+ * The page's one checkbox turned the whole plugin off, the same as deactivating
+ * it, so it was removed. Its saved value, and the old WebP settings stored with
+ * it, are deleted.
  *
- * @return array
+ * @since 0.9.0
+ *
+ * @return void
  */
-function get_default_options(): array {
-	return [
-		'attributes' => true,
-	];
-}
+function remove_settings_leftovers(): void {
+	if ( false === get_option( 'mai_performance_images' ) ) {
+		return;
+	}
 
-/**
- * Gets plugin options, always as a full array.
- *
- * @since 0.5.0
- *
- * @return array
- */
-function get_plugin_options(): array {
-	$options = get_option( 'mai_performance_images', [] );
-
-	return wp_parse_args( is_array( $options ) ? $options : [], get_default_options() );
-}
-
-/**
- * Checks if attributes functionality is enabled.
- *
- * @since 0.5.0
- *
- * @return bool
- */
-function is_attributes_enabled(): bool {
-	return (bool) get_plugin_options()['attributes'];
+	delete_option( 'mai_performance_images' );
 }

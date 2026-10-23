@@ -195,20 +195,13 @@ final class LoadingAttributes {
 	}
 
 	/**
-	 * Adds the finished-page filter, when the setting is on.
-	 *
-	 * With the setting off the filter is never added, so this plugin does not make
-	 * WordPress collect the page.
+	 * Adds the finished-page filter.
 	 *
 	 * @since 0.8.0
 	 *
 	 * @return void
 	 */
 	public function add_page_filter(): void {
-		if ( ! is_attributes_enabled() ) {
-			return;
-		}
-
 		add_filter( 'wp_template_enhancement_output_buffer', [ $this, 'filter_page' ] );
 		add_action( 'wp_template_enhancement_output_buffer_started', [ $this, 'start_collecting' ] );
 
@@ -252,7 +245,7 @@ final class LoadingAttributes {
 	 * @return bool
 	 */
 	public function is_collecting(): bool {
-		return $this->collecting && is_attributes_enabled();
+		return $this->collecting;
 	}
 
 	/**
@@ -326,7 +319,7 @@ final class LoadingAttributes {
 	public function filter_loading_attributes( $attrs, $tag_name, $attr, $context ): array {
 		$attrs = is_array( $attrs ) ? $attrs : [];
 
-		if ( 'img' !== $tag_name || ! is_attributes_enabled() ) {
+		if ( 'img' !== $tag_name ) {
 			return $attrs;
 		}
 
@@ -413,9 +406,7 @@ final class LoadingAttributes {
 			return $this->walk_late( $html );
 		}
 
-		$budget = is_attributes_enabled() ? new LoadingBudget( $this->has_configured_eager( $html ) ) : null;
-
-		return $this->walk_page( $html, $budget );
+		return $this->walk_page( $html, new LoadingBudget( $this->has_configured_eager( $html ) ) );
 	}
 
 	/**
@@ -433,13 +424,12 @@ final class LoadingAttributes {
 	 *
 	 * @since 0.8.0
 	 *
-	 * @param string             $html   The finished page.
-	 * @param LoadingBudget|null $budget The page's budget, or null to only remove
-	 *                                   the markers.
+	 * @param string        $html   The finished page.
+	 * @param LoadingBudget $budget The page's budget.
 	 *
 	 * @return string
 	 */
-	private function walk_page( string $html, ?LoadingBudget $budget ): string {
+	private function walk_page( string $html, LoadingBudget $budget ): string {
 		$tags      = new \WP_HTML_Tag_Processor( $html );
 		$waiting   = [];
 		$auto_high = false;
@@ -454,7 +444,7 @@ final class LoadingAttributes {
 
 			$size = self::size( $tags );
 
-			if ( ! $budget || $hidden || self::is_tiny( $size ) ) {
+			if ( $hidden || self::is_tiny( $size ) ) {
 				continue;
 			}
 
@@ -515,7 +505,7 @@ final class LoadingAttributes {
 			}
 		}
 
-		if ( $budget && $waiting ) {
+		if ( $waiting ) {
 			$this->settle_waiting( $tags, $budget, $waiting, $found );
 		}
 
@@ -591,8 +581,7 @@ final class LoadingAttributes {
 	 * @return string
 	 */
 	private function walk_late( string $html ): string {
-		$enabled = is_attributes_enabled();
-		$tags    = new \WP_HTML_Tag_Processor( $html );
+		$tags = new \WP_HTML_Tag_Processor( $html );
 
 		foreach ( self::each_image( $tags ) as $hidden ) {
 			$marker = $tags->get_attribute( self::MARKER );
@@ -601,7 +590,7 @@ final class LoadingAttributes {
 				$tags->remove_attribute( self::MARKER );
 			}
 
-			if ( $hidden || ! $enabled || self::is_tiny( self::size( $tags ) ) || null !== $tags->get_attribute( 'loading' ) ) {
+			if ( $hidden || self::is_tiny( self::size( $tags ) ) || null !== $tags->get_attribute( 'loading' ) ) {
 				continue;
 			}
 

@@ -802,23 +802,6 @@ final class LoadingAttributesTest extends TestCase {
 		$this->assertSame( [ 'auto', '' ], [ $this->images( $html )[0]['fetchpriority'], $this->images( $html )[2]['fetchpriority'] ] );
 	}
 
-	public function test_nothing_changes_when_the_setting_is_off(): void {
-		update_option( 'mai_performance_images', [ 'attributes' => false ] );
-
-		remove_all_filters( 'wp_template_enhancement_output_buffer' );
-		LoadingAttributes::instance()->add_page_filter();
-		$this->assertFalse( has_filter( 'wp_template_enhancement_output_buffer' ) );
-
-		$page = $this->static_image( 1 ) . $this->static_image( 2 );
-		$this->assertSame( $page, $this->filter_page( $page ) );
-
-		$core = [ 'decoding' => 'async', 'loading' => 'lazy' ];
-		$this->assertSame( $core, LoadingAttributes::instance()->filter_loading_attributes( $core, 'img', [ 'width' => 100, 'height' => 100, 'class' => 'entry-image' ], 'wp_get_attachment_image' ) );
-
-		$block = '<!-- wp:image {"imgLoading":"eager"} --><figure class="wp-block-image">' . $this->static_image( 1, 'loading="lazy"' ) . '</figure><!-- /wp:image -->';
-		$this->assertSame( 'lazy', $this->images( do_blocks( $block ) )[0]['loading'] );
-	}
-
 	public function test_a_bad_value_from_another_filter_does_not_break_the_page(): void {
 		add_filter( 'wp_get_loading_optimization_attributes', '__return_false', 5 );
 

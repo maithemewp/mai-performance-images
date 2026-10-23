@@ -28,7 +28,7 @@ On sites running Mai Publisher, ads and sidebar content are added to the page af
 
 ## Settings
 
-**Settings > Performance Images** has one checkbox, Image loading. It's on by default. Turn it off and WordPress decides loading on its own again.
+The plugin has no settings page. It works as soon as it's active. Deactivate it and WordPress decides loading on its own again.
 
 **Image Loading** is a choice of Automatic, Lazy or Eager. It appears in four places:
 

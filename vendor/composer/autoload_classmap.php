@@ -13,6 +13,5 @@ return array(
     'Mai\\PerformanceImages\\MaiBlocks' => $baseDir . '/classes/class-mai-blocks.php',
     'Mai\\PerformanceImages\\MaiEngine' => $baseDir . '/classes/class-mai-engine.php',
     'Mai\\PerformanceImages\\MaiEntryLoading' => $baseDir . '/classes/class-mai-entry-loading.php',
-    'Mai\\PerformanceImages\\Settings' => $baseDir . '/classes/class-settings.php',
     'Mai\\PerformanceImages\\Updater' => $baseDir . '/classes/class-updater.php',
 );
