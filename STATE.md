@@ -28,7 +28,7 @@ Spec: `docs/specs/2026-10-14-one-main-image.md`. Plan: `docs/plans/2026-10-14-on
 
 ## Verify
 - `composer test` (121 tests). Walk speed has no automated check; rerun the timing below after changing the walk.
-- Symlinked on beof, eurweb, larrybrownsports, sportsdataio, visitsleepyhollow. List images with `curl -sk` plus a `?mpi=<random>` query, because eurweb runs WP Rocket and serves cached pages otherwise. Expect one `fetchpriority="high"`, logos above it eager, footer logos lazy, no `data-mpi-loading`.
+- Every local Herd site with the plugin uses the symlink, since October 23. List images with `curl -sk` plus a `?mpi=<random>` query, because a page cache such as WP Rocket serves cached pages otherwise. Expect one `fetchpriority="high"`, logos above it eager, footer logos lazy, no `data-mpi-loading`.
 - Walk time on the sw Stories archive (200 KB, 26 images) is 3.9 ms per page, the same as before the change. A two-pass version measured 6.4 ms and was dropped.
 - Mobile Lighthouse on the local eurweb News archive, 5 alternating runs each, October 14: 0.7.0 median score 71 and LCP 4.9 s; 0.8.0 median 76 and 4.3 s. 0.8.0 won 3 of 5 pairs, and the spread between runs (3.3 to 8.4 s) is bigger than the gap, so it's no worse, but not a proven win on this page. The LCP image was the first entry in every run.
 
@@ -37,4 +37,3 @@ Spec: `docs/specs/2026-10-14-one-main-image.md`. Plan: `docs/plans/2026-10-14-on
 - The walk keeps at most 8 logos or small images waiting for a slot below them, because the tag processor allows 10 bookmarks. Past 8, the rest above the main image lazy load.
 - sw.doyouremember.com: Cloudflare blocks curl. Fetch with headless Chromium, a normal user agent, and basic auth doyouremember/doyouremember.
 - Requests that never reach the page buffer (REST, feeds, Ajax) are left to WordPress, plus the editor's and Mai entry's choices. WordPress uses its own count of 3 there.
-- Eight local sites run older copies of the plugin, not the symlink.
