@@ -2,7 +2,7 @@
 Updated: October 23, 2026 by Claude
 
 ## Now
-On `develop`, unreleased: the Settings > Performance Images page is gone. Its one checkbox turned the whole plugin off, the same as deactivating it. On October 23 none of the 58 sites with the plugin active had it off (34 saved on, 24 never saved). `remove_settings_leftovers()` deletes the `mai_performance_images` option on the next admin visit. The `@since 0.9.0` on it assumes the next release is 0.9.0.
+0.9.0 is released (October 23): the Settings > Performance Images page is gone. Its one checkbox turned the whole plugin off, the same as deactivating it. On October 23 none of the 58 sites with the plugin active had it off (34 saved on, 24 never saved). `remove_settings_leftovers()` deletes the `mai_performance_images` option on the next admin visit.
 
 0.8.0 is released (tag 0.8.0, `main` at e5449b8, October 14). The 27 sites in the git-ignored `mai-sites.json` were pushed 0.8.0 by hand and all boot on it. The other 33 sites were on 0.7.0 and should get 0.8.0 from the updater.
 
