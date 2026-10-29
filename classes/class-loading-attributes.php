@@ -143,6 +143,16 @@ final class LoadingAttributes {
 	private bool $collecting = false;
 
 	/**
+	 * Whether WordPress is counting an image for the plugin right now, so the
+	 * plugin's own filter stays out of that call.
+	 *
+	 * @since 0.9.1
+	 *
+	 * @var bool
+	 */
+	private bool $counting = false;
+
+	/**
 	 * The one instance.
 	 *
 	 * @since 0.7.0
@@ -280,11 +290,14 @@ final class LoadingAttributes {
 	 * @return mixed
 	 */
 	public function mark_image( $pre, $tag_name, $attr, $context ) {
-		if ( is_array( $pre ) || 'img' !== $tag_name || ! $this->is_collecting() ) {
+		if ( $this->counting || is_array( $pre ) || 'img' !== $tag_name || ! $this->is_collecting() ) {
 			return $pre;
 		}
 
 		$attr = is_array( $attr ) ? $attr : [];
+
+		$this->count_like_wordpress( $attr, (string) $context );
+
 		$kind = LoadingBudget::kind( $attr, (string) $context );
 
 		// A logo built with a Mai context has no other sign of being one. An avatar
@@ -296,6 +309,36 @@ final class LoadingAttributes {
 		$loading = $this->get_entry_loading( $attr );
 
 		return $loading ? [ self::MARKER => $loading ] : [];
+	}
+
+	/**
+	 * Lets WordPress count the image the way it would have without the plugin.
+	 *
+	 * Answering first in mark_image() makes WordPress return before it counts the
+	 * image, so it thinks fewer images came first. An iframe below them, such as a
+	 * YouTube or Vimeo embed, then looks near the top and loads right away instead
+	 * of lazy loading. Running WordPress's own function here, with the plugin's
+	 * answer held back, counts the image by WordPress's own rules. Its answer is
+	 * thrown away, and the high priority flag it may use up is put back, since the
+	 * plugin decides images itself.
+	 *
+	 * @since 0.9.1
+	 *
+	 * @param array  $attr    The attributes for the tag.
+	 * @param string $context The context for the element.
+	 *
+	 * @return void
+	 */
+	private function count_like_wordpress( array $attr, string $context ): void {
+		$high_priority  = wp_high_priority_element_flag();
+		$this->counting = true;
+
+		try {
+			wp_get_loading_optimization_attributes( 'img', $attr, $context );
+		} finally {
+			$this->counting = false;
+			wp_high_priority_element_flag( $high_priority );
+		}
 	}
 
 	/**
