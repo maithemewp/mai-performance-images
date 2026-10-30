@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1 (10/30/26)
+
+### Fixed
+
+- **Videos below the main images now lazy load again.** The plugin answered for each image before WordPress could count it, so WordPress thought a YouTube or Vimeo embed further down was near the top and loaded it right away. WordPress now counts every image by its own rules, so it lazy loads embeds the way it would without the plugin. Image loading is unchanged. On one home page with a video far down, the phone download fell from 2.35 MB to 1.1 MB.
+
 ## 0.9.0 (10/23/26)
 
 ### Removed
